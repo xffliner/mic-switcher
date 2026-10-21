@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+
+# Виртуальные окружения
+.venv/
+venv/
+env/
+
+# Артефакты сборки PyInstaller
+build/
+dist/
+mic_switcher_modern_app.py
+
+# Локальное состояние приложения (создаётся рядом с exe)
+mic_switcher.json
+
+# ОС / редакторы
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
