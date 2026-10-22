@@ -596,11 +596,69 @@ def save_config(hotkey, exclude, volumes=None):
                 volumes = {str(k): int(v) for k, v in (json.load(f).get("volumes") or {}).items()}
         except Exception:
             volumes = {}
+    # Сохраняем язык, если он уже задан
+    lang = load_lang()
     try:
         with open(config_path(), "w", encoding="utf-8") as f:
             json.dump({"hotkey": hotkey, "exclude": sorted(exclude),
-                       "volumes": volumes},
+                       "volumes": volumes, "lang": lang},
                       f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def _detect_system_lang():
+    """Определить язык интерфейса по языку Windows.
+    Русский Windows → "ru", всё остальное → "en"."""
+    try:
+        import ctypes
+        lcid = ctypes.windll.kernel32.GetUserDefaultUILanguage()
+        lang_id = lcid & 0xFFFF
+        if lang_id == 0x0419:  # Russian
+            return "ru"
+        return "en"
+    except Exception:
+        pass
+    try:
+        import locale
+        loc = locale.getdefaultlocale()
+        if loc and loc[0] and loc[0].lower().startswith("ru"):
+            return "ru"
+    except Exception:
+        pass
+    return "en"
+
+
+def load_lang():
+    """Возвращает сохранённый язык ("ru"/"en").
+    Если в конфиге ещё нет — определяет по языку Windows и сохраняет."""
+    try:
+        with open(config_path(), encoding="utf-8") as f:
+            data = json.load(f)
+        lang = data.get("lang")
+        if lang in ("ru", "en"):
+            return lang
+    except Exception:
+        pass
+    # Первый запуск (или конфиг повреждён) — определяем по системе
+    detected = _detect_system_lang()
+    save_lang(detected)
+    return detected
+
+
+def save_lang(lang):
+    """Сохранить язык в конфиг."""
+    if lang not in ("ru", "en"):
+        lang = "ru"
+    try:
+        with open(config_path(), encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        data = {}
+    data["lang"] = lang
+    try:
+        with open(config_path(), "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
 

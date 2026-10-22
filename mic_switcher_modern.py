@@ -22,6 +22,19 @@ import mic_switcher as ms
 import sounddevice as sd
 
 # ─────────────────────────────────────────────────────────────
+# Отладочный лог: %TEMP%\micswitcher_debug.log
+# (в TEMP, чтобы не зависеть от прав на папку приложения)
+# ─────────────────────────────────────────────────────────────
+def _dbg(msg):
+    try:
+        p = os.path.join(os.environ.get("TEMP") or os.environ.get("TMP") or ".",
+                         "micswitcher_debug.log")
+        with open(p, "a", encoding="utf-8") as f:
+            f.write("[%s] %s\n" % (time.strftime("%H:%M:%S"), msg))
+    except Exception:
+        pass
+
+# ─────────────────────────────────────────────────────────────
 # Дизайн-токены (та же палитра «аудио-консоль», что в mic_switcher.py)
 # ─────────────────────────────────────────────────────────────
 BG          = ms.BG           # фон приложения
@@ -44,6 +57,131 @@ ICON_B64 = ""
 
 # Релиз
 VERSION = "1.0.0"
+
+# ─────────────────────────────────────────────────────────────
+# Локализация (RU / EN)
+# ─────────────────────────────────────────────────────────────
+STRINGS = {
+    "ru": {
+        "app_title":          "Переключатель микрофонов",
+        "footer":             "Переключатель микрофонов  •  v{ver}",
+        "hotkey_badge":       "Клавиша: {hk}",
+        "section_mics":       "Микрофоны",
+        "reset_vol":          "↺ Сброс громкости",
+        "switch_btn":         "Сменить микрофон  ({hk})",
+        "btn_settings":       "Настройки",
+        "btn_quit":           "Завершить сеанс программы",
+        "hint_main":          "ЛКМ — выбрать   •   колесо — громкость (0–250%)   •   тумблер — вкл/выкл микрофона",
+        "vac_title":          "Виртуальный микрофон",
+        "vac_not_found":      "не найден",
+        "vac_active":         "активен",
+        "vac_inactive":       "не активен",
+        "vac_unavailable":    "недоступен",
+        "vac_status_active":  "Активен: {name}  →  Виртуальный микрофон",
+        "vac_status_inactive":"Виртуальный микрофон: роутинг не активен",
+        "vac_status_novac":   "VAC не установлен — виртуальный микрофон недоступен",
+        "vac_discord":        "Discord: настроить звук",
+        "vac_windows":        "Windows: настройки звука",
+        "vac_test_btn":       "Проверить виртуальный микрофон",
+        "vac_mon_title":      "Прослушать виртуальный микрофон",
+        "vac_mon_desc":       "Ведёт звук вирт. микрофона на устройство вывода, чтобы его услышать",
+        "vac_mon_out":        "Устройство вывода:",
+        "vac_mon_start":      "Прослушать",
+        "vac_mon_stop":       "Остановить прослушку",
+        "sec_hotkey":         "Горячая клавиша",
+        "hk_hint":            "Кликните по полю и нажмите нужную клавишу (Esc — отмена)",
+        "hk_press":           "Нажмите клавишу… (Esc — отмена)",
+        "hk_add_main":        "Добавьте основную клавишу…",
+        "hk_invalid":         "Эту клавишу нельзя назначить",
+        "sec_autostart":      "Автозапуск",
+        "autostart_chk":      "Запускать при входе в Windows",
+        "sec_lang":           "Язык",
+        "btn_back":           "←  Назад",
+        "mics_empty":         "Микрофоны не найдены",
+        "mic_excluded":       "исключён",
+        "vol_label":          "Громкость",
+        "tray_show":          "Показать окно",
+        "tray_quit":          "Завершить сеанс программы",
+        "tray_tooltip":       "Переключатель микрофонов",
+        "err_title":          "Ошибка",
+        "err_hotkey_input":   "Не удалось начать ввод: {e}",
+        "err_badkey_title":   "Неверная клавиша",
+        "msg_already_run":    "Программа уже запущена — ищи её окно в трее или на рабочем столе.",
+        "toast_vac_fail":     "⚠️ Виртуальный микрофон: {e}",
+        "toast_hotkey":       "🔑 Горячая клавиша: {hk}",
+        "toast_autostart_on": "🚀 Автозапуск: включён",
+        "toast_autostart_off":"🚀 Автозапуск: выключен",
+        "vac_test_checking":  "Проверяю виртуальный микрофон…",
+        "vac_test_notfound":  "VAC не найден — установите Virtual Audio Cable",
+        "vac_test_error":     "Ошибка при проверке: {e}",
+        "vac_test_ok":        "Виртуальный микрофон работает (уровень {rms}). В Discord/Windows будет слышно.",
+        "vac_test_weak":      "Сигнал слабый (уровень {rms}). Убедитесь, что в Discord выбран микрофон «{vac}»",
+        "mon_select_out":     "Выберите устройство вывода",
+        "mon_start_fail":     "Не удалось начать прослушку: {e}",
+        "mon_listening":      "Слушайте: вирт. микрофон → «{name}»",
+        "mon_stopped":        "Прослушка остановлена",
+    },
+    "en": {
+        "app_title":          "Mic Switcher",
+        "footer":             "Mic Switcher  •  v{ver}",
+        "hotkey_badge":       "Key: {hk}",
+        "section_mics":       "Microphones",
+        "reset_vol":          "↺ Reset volume",
+        "switch_btn":         "Switch mic  ({hk})",
+        "btn_settings":       "Settings",
+        "btn_quit":           "Exit",
+        "hint_main":          "LMB — select   •   wheel — volume (0–250%)   •   toggle — enable/disable mic",
+        "vac_title":          "Virtual microphone",
+        "vac_not_found":      "not found",
+        "vac_active":         "active",
+        "vac_inactive":       "inactive",
+        "vac_unavailable":    "unavailable",
+        "vac_status_active":  "Active: {name}  →  Virtual mic",
+        "vac_status_inactive":"Virtual mic: routing inactive",
+        "vac_status_novac":   "VAC not installed — virtual mic unavailable",
+        "vac_discord":        "Discord: audio settings",
+        "vac_windows":        "Windows: sound settings",
+        "vac_test_btn":       "Test virtual microphone",
+        "vac_mon_title":      "Monitor virtual microphone",
+        "vac_mon_desc":       "Routes virtual mic audio to an output device so you can hear it",
+        "vac_mon_out":        "Output device:",
+        "vac_mon_start":      "Monitor",
+        "vac_mon_stop":       "Stop monitoring",
+        "sec_hotkey":         "Hotkey",
+        "hk_hint":            "Click the field and press the desired key (Esc — cancel)",
+        "hk_press":           "Press a key… (Esc — cancel)",
+        "hk_add_main":        "Add a main key…",
+        "hk_invalid":         "This key cannot be assigned",
+        "sec_autostart":      "Autostart",
+        "autostart_chk":      "Launch at Windows startup",
+        "sec_lang":           "Language",
+        "btn_back":           "←  Back",
+        "mics_empty":         "No microphones found",
+        "mic_excluded":       "excluded",
+        "vol_label":          "Volume",
+        "tray_show":          "Show window",
+        "tray_quit":          "Exit",
+        "tray_tooltip":       "Mic Switcher",
+        "err_title":          "Error",
+        "err_hotkey_input":   "Failed to start input: {e}",
+        "err_badkey_title":   "Invalid key",
+        "msg_already_run":    "Already running — find its window in the tray or on the desktop.",
+        "toast_vac_fail":     "⚠️ Virtual microphone: {e}",
+        "toast_hotkey":       "🔑 Hotkey: {hk}",
+        "toast_autostart_on": "🚀 Autostart: enabled",
+        "toast_autostart_off":"🚀 Autostart: disabled",
+        "vac_test_checking":  "Testing virtual microphone…",
+        "vac_test_notfound":  "VAC not found — install Virtual Audio Cable",
+        "vac_test_error":     "Test error: {e}",
+        "vac_test_ok":        "Virtual microphone is working (level {rms}). Will be audible in Discord/Windows.",
+        "vac_test_weak":      "Signal weak (level {rms}). Make sure «{vac}» is selected in Discord.",
+        "mon_select_out":     "Select an output device",
+        "mon_start_fail":     "Failed to start monitoring: {e}",
+        "mon_listening":      "Listening: virtual mic → «{name}»",
+        "mon_stopped":        "Monitoring stopped",
+    },
+}
+
 
 # Анимации: длительность в шагах и easing-кривые
 ANIM_TRANS_STEPS = 12      # смена экрана
@@ -350,10 +488,13 @@ class App:
         self._mon_devices = []
         self._mon_by_name = {}
 
+        # ── Язык ──
+        self.lang = ms.load_lang()  # "ru" или "en"
+
         # ── Окно ──
         ctk.set_appearance_mode("dark")
         self.root = ctk.CTk()
-        self.root.title("Переключатель микрофонов")
+        self.root.title(self.t("app_title"))
         self.root.configure(fg_color=BG)
         self.root.geometry("500x748")
         self.root.minsize(470, 680)
@@ -393,11 +534,11 @@ class App:
                 else:
                     self.router = None
                     self.root.after(0, lambda e=r.last_error: self.show_notification(
-                        "⚠️ Виртуальный микрофон: " + (e or "не удалось запустить")))
+                        self.t("toast_vac_fail", e=(e or "?"))))
             except Exception as e:
                 self.router = None
                 self.root.after(0, lambda e=e: self.show_notification(
-                    "⚠️ Виртуальный микрофон: " + str(e)))
+                    self.t("toast_vac_fail", e=str(e))))
 
         # ── Экраны ──
         self._build_main()
@@ -410,6 +551,17 @@ class App:
 
         self._start_tray()
         self.root.after(100, self._poll_hotkey)
+
+    def t(self, key, **kw):
+        """Вернуть строку локализованного текста для текущего языка."""
+        d = STRINGS.get(self.lang, STRINGS["ru"])
+        s = d.get(key, key)
+        if kw:
+            try:
+                s = s.format(**kw)
+            except Exception:
+                pass
+        return s
 
     def _initial_fit(self):
         self._resync_layout()
@@ -426,11 +578,12 @@ class App:
 
         row1 = ctk.CTkFrame(hdr, fg_color="transparent")
         row1.pack(fill="x")
-        ctk.CTkLabel(row1, text="Переключатель микрофонов", font=F_TITLE,
-                     text_color=TEXT, anchor="w").pack(side="left")
+        self._title_lbl = ctk.CTkLabel(row1, text=self.t("app_title"), font=F_TITLE,
+                     text_color=TEXT, anchor="w")
+        self._title_lbl.pack(side="left")
         self.hk_pill = ctk.CTkFrame(row1, fg_color=SURFACE_2, corner_radius=999)
         self.hk_pill.pack(side="right")
-        self.hk_badge_lbl = ctk.CTkLabel(self.hk_pill, text="Клавиша: " + self.display_hotkey(),
+        self.hk_badge_lbl = ctk.CTkLabel(self.hk_pill, text=self.t("hotkey_badge", hk=self.display_hotkey()),
                                          font=F_CAP_B, text_color=DIM)
         self.hk_badge_lbl.pack(padx=10, pady=5)
 
@@ -459,10 +612,12 @@ class App:
         # ── Секция «Микрофоны» ──
         sec = ctk.CTkFrame(self.main, fg_color="transparent")
         sec.pack(fill="x", padx=20, pady=(12, 4))
-        ctk.CTkLabel(sec, text="Микрофоны", font=F_H2, text_color=TEXT, anchor="w").pack(side="left")
-        ctk.CTkButton(sec, text="↺ Сброс громкости", command=self.reset_volumes,
+        self._sec_mics_lbl = ctk.CTkLabel(sec, text=self.t("section_mics"), font=F_H2, text_color=TEXT, anchor="w")
+        self._sec_mics_lbl.pack(side="left")
+        self._reset_vol_btn = ctk.CTkButton(sec, text=self.t("reset_vol"), command=self.reset_volumes,
                       fg_color=SURFACE_2, hover_color=BTN, text_color=DIM,
-                      corner_radius=999, height=28, font=F_CAP_B).pack(side="right")
+                      corner_radius=999, height=28, font=F_CAP_B)
+        self._reset_vol_btn.pack(side="right")
 
         # Список микрофонов (скролл-область фиксированной высоты —
         # размер окна одинаков для обоих экранов)
@@ -477,7 +632,7 @@ class App:
 
         # ── Основное действие ──
         self.switch_btn = ctk.CTkButton(self.main,
-                                        text="Сменить микрофон  (" + self.display_hotkey() + ")",
+                                        text=self.t("switch_btn", hk=self.display_hotkey()),
                                         command=self.toggle,
                                         fg_color=BTN, hover_color=BTN_HOVER, text_color="white",
                                         font=F_BTN, height=46, corner_radius=12)
@@ -486,23 +641,27 @@ class App:
         # ── Вторичные действия (симметрично, равной шириной) ──
         row = ctk.CTkFrame(self.main, fg_color="transparent")
         row.pack(fill="x", padx=20, pady=(0, 8))
-        ctk.CTkButton(row, text="Настройки", command=self.open_settings,
+        self._btn_settings = ctk.CTkButton(row, text=self.t("btn_settings"), command=self.open_settings,
                       fg_color=CARD, hover_color=SURFACE_2, text_color=TEXT,
                       corner_radius=999, height=36, font=F_CAP_B,
-                      border_width=1, border_color=BORDER).pack(side="left", fill="x",
+                      border_width=1, border_color=BORDER)
+        self._btn_settings.pack(side="left", fill="x",
                                                                 expand=True, padx=(0, 4))
-        ctk.CTkButton(row, text="Завершить сеанс программы", command=self.quit_app,
+        self._btn_quit = ctk.CTkButton(row, text=self.t("btn_quit"), command=self.quit_app,
                       fg_color=CARD, hover_color="#3a2030", text_color=DANGER,
                       corner_radius=999, height=36, font=F_CAP_B,
-                      border_width=1, border_color=BORDER).pack(side="left", fill="x",
+                      border_width=1, border_color=BORDER)
+        self._btn_quit.pack(side="left", fill="x",
                                                                 expand=True, padx=(4, 0))
 
         # ── Подсказка + версия ──
-        ctk.CTkLabel(self.main,
-                     text="ЛКМ — выбрать   •   колесо — громкость (0–250%)   •   тумблер — вкл/выкл микрофона",
-                     font=F_MICRO, text_color=TEXT_3, anchor="w").pack(fill="x", padx=20, pady=(2, 4))
-        ctk.CTkLabel(self.main, text="Переключатель микрофонов  •  v" + VERSION,
-                     font=F_MICRO, text_color=TEXT_3).pack(pady=(0, 12))
+        self._hint_lbl = ctk.CTkLabel(self.main,
+                     text=self.t("hint_main"),
+                     font=F_MICRO, text_color=TEXT_3, anchor="w")
+        self._hint_lbl.pack(fill="x", padx=20, pady=(2, 4))
+        self._footer_lbl = ctk.CTkLabel(self.main, text=self.t("footer", ver=VERSION),
+                     font=F_MICRO, text_color=TEXT_3)
+        self._footer_lbl.pack(pady=(0, 12))
 
     def _build_vac_card(self):
         card = ctk.CTkFrame(self.main, fg_color=CARD, corner_radius=14,
@@ -510,25 +669,29 @@ class App:
         card.pack(fill="x", padx=20, pady=(8, 8))
         top = ctk.CTkFrame(card, fg_color="transparent")
         top.pack(fill="x", padx=14, pady=(8, 0))
-        ctk.CTkLabel(top, text="Виртуальный микрофон", font=F_H2, text_color=TEXT,
-                     anchor="w").pack(side="left")
+        self._vac_title_lbl = ctk.CTkLabel(top, text=self.t("vac_title"), font=F_H2, text_color=TEXT,
+                     anchor="w")
+        self._vac_title_lbl.pack(side="left")
         self.vac_status_pill = ctk.CTkFrame(top, fg_color=SURFACE_2, corner_radius=999)
         self.vac_status_pill.pack(side="right")
         self.vac_status_lbl = ctk.CTkLabel(self.vac_status_pill, text="…", font=F_CAP_B,
                                            text_color=DIM)
         self.vac_status_lbl.pack(padx=10, pady=4)
-        ctk.CTkLabel(card, text=(self.vac_name or "не найден"), font=F_CAP, text_color=DIM,
-                     anchor="w").pack(fill="x", padx=14, pady=(2, 6))
+        self._vac_name_lbl = ctk.CTkLabel(card, text=(self.vac_name or self.t("vac_not_found")), font=F_CAP, text_color=DIM,
+                     anchor="w")
+        self._vac_name_lbl.pack(fill="x", padx=14, pady=(2, 6))
         links = ctk.CTkFrame(card, fg_color="transparent")
         links.pack(fill="x", padx=14, pady=(0, 10))
-        ctk.CTkButton(links, text="Discord: настроить звук",
+        self._vac_discord_btn = ctk.CTkButton(links, text=self.t("vac_discord"),
                       command=self.open_discord_voice_settings,
                       fg_color=SURFACE_2, hover_color=BTN, text_color=TEXT,
-                      corner_radius=999, height=30, font=F_CAP_B).pack(side="left")
-        ctk.CTkButton(links, text="Windows: настройки звука",
+                      corner_radius=999, height=30, font=F_CAP_B)
+        self._vac_discord_btn.pack(side="left")
+        self._vac_windows_btn = ctk.CTkButton(links, text=self.t("vac_windows"),
                       command=self.open_windows_sound_settings,
                       fg_color=SURFACE_2, hover_color=BTN, text_color=TEXT,
-                      corner_radius=999, height=30, font=F_CAP_B).pack(side="left", padx=(8, 0))
+                      corner_radius=999, height=30, font=F_CAP_B)
+        self._vac_windows_btn.pack(side="left", padx=(8, 0))
 
     # ═══════════════════════════ ЭКРАН: НАСТРОЙКИ ═══════════════════════════
     def _build_settings(self):
@@ -536,48 +699,54 @@ class App:
         self.settings = s
 
         # Футер с версией — как на главном экране (прижат к низу)
-        ctk.CTkLabel(s, text="Переключатель микрофонов  •  v" + VERSION,
-                     font=F_MICRO, text_color=TEXT_3).pack(side="bottom", pady=(0, 14))
+        self._settings_footer = ctk.CTkLabel(s, text=self.t("footer", ver=VERSION),
+                     font=F_MICRO, text_color=TEXT_3)
+        self._settings_footer.pack(side="bottom", pady=(0, 14))
 
         hdr = ctk.CTkFrame(s, fg_color="transparent")
         hdr.pack(fill="x", padx=20, pady=(18, 4))
-        ctk.CTkLabel(hdr, text="Настройки", font=F_TITLE, text_color=TEXT, anchor="w").pack(side="left")
-        ctk.CTkButton(hdr, text="←  Назад", command=self.close_settings,
+        self._settings_title = ctk.CTkLabel(hdr, text=self.t("btn_settings"), font=F_TITLE, text_color=TEXT, anchor="w")
+        self._settings_title.pack(side="left")
+        self._btn_back = ctk.CTkButton(hdr, text=self.t("btn_back"), command=self.close_settings,
                       fg_color=SURFACE_2, hover_color=BTN, text_color=TEXT,
-                      corner_radius=999, height=32, font=F_CAP_B).pack(side="right")
+                      corner_radius=999, height=32, font=F_CAP_B)
+        self._btn_back.pack(side="right")
 
         # ── Виртуальный микрофон ──
-        # expand=True: лишняя высота (экраны настроек и мейна одного размера)
-        # распределяется равномерно между карточками — без «дыры» снизу
         c1 = ctk.CTkFrame(s, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
         c1.pack(fill="x", padx=20, pady=(12, 10), expand=True)
-        ctk.CTkLabel(c1, text="Виртуальный микрофон", font=F_H2, text_color=TEXT,
-                     anchor="w").pack(fill="x", padx=14, pady=(12, 4))
+        self._settings_vac_title = ctk.CTkLabel(c1, text=self.t("vac_title"), font=F_H2, text_color=TEXT,
+                     anchor="w")
+        self._settings_vac_title.pack(fill="x", padx=14, pady=(12, 4))
         self.vac_status_row = ctk.CTkLabel(c1, text="", font=F_CAP, text_color=DIM,
                                            anchor="w", justify="left")
         self.vac_status_row.pack(fill="x", padx=14)
-        ctk.CTkButton(c1, text="Проверить виртуальный микрофон", command=self.test_virtual_mic,
+        self._settings_test_btn = ctk.CTkButton(c1, text=self.t("vac_test_btn"), command=self.test_virtual_mic,
                       fg_color=BTN, hover_color=BTN_HOVER, text_color="white",
-                      corner_radius=10, height=36, font=F_BODY_B).pack(fill="x", padx=14, pady=(8, 4))
+                      corner_radius=10, height=36, font=F_BODY_B)
+        self._settings_test_btn.pack(fill="x", padx=14, pady=(8, 4))
         self.vac_test_lbl = ctk.CTkLabel(c1, text="", font=F_CAP, text_color=DIM,
                                          anchor="w", justify="left", height=1)
         self.vac_test_lbl.pack(fill="x", padx=14)
 
         ctk.CTkFrame(c1, fg_color=BORDER, height=1).pack(fill="x", padx=14, pady=10)
 
-        ctk.CTkLabel(c1, text="Прослушать виртуальный микрофон", font=F_H2, text_color=TEXT,
-                     anchor="w").pack(fill="x", padx=14, pady=(0, 2))
-        ctk.CTkLabel(c1, text="Ведёт звук вирт. микрофона на устройство вывода, чтобы его услышать",
-                     font=F_MICRO, text_color=TEXT_3, anchor="w", justify="left").pack(fill="x", padx=14, pady=(0, 8))
+        self._settings_mon_title = ctk.CTkLabel(c1, text=self.t("vac_mon_title"), font=F_H2, text_color=TEXT,
+                     anchor="w")
+        self._settings_mon_title.pack(fill="x", padx=14, pady=(0, 2))
+        self._settings_mon_desc = ctk.CTkLabel(c1, text=self.t("vac_mon_desc"),
+                     font=F_MICRO, text_color=TEXT_3, anchor="w", justify="left")
+        self._settings_mon_desc.pack(fill="x", padx=14, pady=(0, 8))
         dev_row = ctk.CTkFrame(c1, fg_color="transparent")
         dev_row.pack(fill="x", padx=14)
-        ctk.CTkLabel(dev_row, text="Устройство вывода:", font=F_CAP, text_color=DIM).pack(side="left")
+        self._settings_mon_out_lbl = ctk.CTkLabel(dev_row, text=self.t("vac_mon_out"), font=F_CAP, text_color=DIM)
+        self._settings_mon_out_lbl.pack(side="left")
         self.mon_out_menu = ctk.CTkOptionMenu(dev_row, values=[], command=lambda v: None,
                                               fg_color=SURFACE_2, button_color=BORDER,
                                               button_hover_color=BTN, text_color=TEXT,
                                               font=F_CAP, height=32, corner_radius=8)
         self.mon_out_menu.pack(side="left", fill="x", expand=True, padx=(8, 0))
-        self.mon_btn = ctk.CTkButton(c1, text="Прослушать", command=self.toggle_monitor,
+        self.mon_btn = ctk.CTkButton(c1, text=self.t("vac_mon_start"), command=self.toggle_monitor,
                                      fg_color=BTN, hover_color=BTN_HOVER, text_color="white",
                                      corner_radius=10, height=36, font=F_BODY_B)
         self.mon_btn.pack(fill="x", padx=14, pady=(10, 4))
@@ -588,28 +757,46 @@ class App:
         # ── Горячая клавиша ──
         c2 = ctk.CTkFrame(s, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
         c2.pack(fill="x", padx=20, pady=(0, 10), expand=True)
-        ctk.CTkLabel(c2, text="Горячая клавиша", font=F_H2, text_color=TEXT,
-                     anchor="w").pack(fill="x", padx=14, pady=(12, 4))
+        self._settings_hk_title = ctk.CTkLabel(c2, text=self.t("sec_hotkey"), font=F_H2, text_color=TEXT,
+                     anchor="w")
+        self._settings_hk_title.pack(fill="x", padx=14, pady=(12, 4))
         self.hk_field = ctk.CTkButton(c2, text=self.display_hotkey(),
                                       command=self._begin_hotkey_capture,
                                       fg_color=SURFACE_2, hover_color=ACCENT_SOFT,
                                       text_color=TEXT, corner_radius=10, height=40,
                                       font=F_BODY_B)
         self.hk_field.pack(fill="x", padx=14)
-        ctk.CTkLabel(c2, text="Кликните по полю и нажмите нужную клавишу (Esc — отмена)",
-                     font=F_MICRO, text_color=TEXT_3, anchor="w").pack(fill="x", padx=14, pady=(8, 12))
+        self._settings_hk_hint = ctk.CTkLabel(c2, text=self.t("hk_hint"),
+                     font=F_MICRO, text_color=TEXT_3, anchor="w")
+        self._settings_hk_hint.pack(fill="x", padx=14, pady=(8, 12))
 
         # ── Автозапуск ──
         c3 = ctk.CTkFrame(s, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
         c3.pack(fill="x", padx=20, pady=(0, 10), expand=True)
-        ctk.CTkLabel(c3, text="Автозапуск", font=F_H2, text_color=TEXT,
-                     anchor="w").pack(fill="x", padx=14, pady=(12, 4))
+        self._settings_autostart_title = ctk.CTkLabel(c3, text=self.t("sec_autostart"), font=F_H2, text_color=TEXT,
+                     anchor="w")
+        self._settings_autostart_title.pack(fill="x", padx=14, pady=(12, 4))
         self.auto_var = tk.BooleanVar(value=ms.autostart_enabled())
-        ctk.CTkCheckBox(c3, text="Запускать при входе в Windows", variable=self.auto_var,
+        self._autostart_chk = ctk.CTkCheckBox(c3, text=self.t("autostart_chk"), variable=self.auto_var,
                         command=self._apply_autostart,
                         fg_color=ACTIVE, hover_color=ACTIVE, text_color=TEXT, font=F_BODY,
                         checkbox_width=18, checkbox_height=18, corner_radius=5,
-                        border_width=1, border_color=BORDER).pack(fill="x", padx=14, pady=(0, 12))
+                        border_width=1, border_color=BORDER)
+        self._autostart_chk.pack(fill="x", padx=14, pady=(0, 12))
+
+        # ── Язык ──
+        c4 = ctk.CTkFrame(s, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
+        c4.pack(fill="x", padx=20, pady=(0, 10), expand=True)
+        self._settings_lang_title = ctk.CTkLabel(c4, text=self.t("sec_lang"), font=F_H2, text_color=TEXT,
+                     anchor="w")
+        self._settings_lang_title.pack(fill="x", padx=14, pady=(12, 4))
+        self.lang_menu = ctk.CTkOptionMenu(c4, values=["Русский", "English"],
+                                           command=self._on_lang_change,
+                                           fg_color=SURFACE_2, button_color=BORDER,
+                                           button_hover_color=BTN, text_color=TEXT,
+                                           font=F_BODY, height=36, corner_radius=8)
+        self.lang_menu.set("Русский" if self.lang == "ru" else "English")
+        self.lang_menu.pack(fill="x", padx=14, pady=(0, 12))
 
     def _show_screen(self, name):
         """Смена экрана с плавным въездом нового (slide-in, ~190 мс).
@@ -702,21 +889,84 @@ class App:
                 pass
         if self.monitor is not None:
             try:
-                self.mon_btn.configure(text="Остановить прослушку", fg_color=DANGER,
+                self.mon_btn.configure(text=self.t("vac_mon_stop"), fg_color=DANGER,
                                        hover_color="#d95560")
             except Exception:
                 pass
         else:
             try:
-                self.mon_btn.configure(text="Прослушать", fg_color=BTN, hover_color=BTN_HOVER)
+                self.mon_btn.configure(text=self.t("vac_mon_start"), fg_color=BTN, hover_color=BTN_HOVER)
             except Exception:
                 pass
-        routing = "активен" if (self.cable_idx is not None and self.router is not None) else "не активен"
+        routing = self.t("vac_active") if (self.cable_idx is not None and self.router is not None) else self.t("vac_inactive")
         try:
             self.vac_status_row.configure(
-                text="VAC: " + (self.vac_name or "не найден") + "    ·    Роутинг: " + routing)
+                text="VAC: " + (self.vac_name or self.t("vac_not_found")) + "    ·    " + routing)
         except Exception:
             pass
+
+    # ═══════════════════════════ ЯЗЫК ═══════════════════════════
+    def _on_lang_change(self, choice):
+        """Сменить язык интерфейса."""
+        new_lang = "ru" if choice == "Русский" else "en"
+        if new_lang == self.lang:
+            return
+        self.lang = new_lang
+        ms.save_lang(new_lang)
+        self.retranslate()
+        # Пересоздать трей (текст пунктов меню)
+        self._rebuild_tray()
+
+    def retranslate(self):
+        """Обновить все тексты UI на текущий язык."""
+        try:
+            self.root.title(self.t("app_title"))
+            # Главный экран
+            self._title_lbl.configure(text=self.t("app_title"))
+            self.hk_badge_lbl.configure(text=self.t("hotkey_badge", hk=self.display_hotkey()))
+            self._sec_mics_lbl.configure(text=self.t("section_mics"))
+            self._reset_vol_btn.configure(text=self.t("reset_vol"))
+            self.switch_btn.configure(text=self.t("switch_btn", hk=self.display_hotkey()))
+            self._btn_settings.configure(text=self.t("btn_settings"))
+            self._btn_quit.configure(text=self.t("btn_quit"))
+            self._hint_lbl.configure(text=self.t("hint_main"))
+            self._footer_lbl.configure(text=self.t("footer", ver=VERSION))
+            # VAC карточка
+            self._vac_title_lbl.configure(text=self.t("vac_title"))
+            self._vac_name_lbl.configure(text=(self.vac_name or self.t("vac_not_found")))
+            self._vac_discord_btn.configure(text=self.t("vac_discord"))
+            self._vac_windows_btn.configure(text=self.t("vac_windows"))
+            # Настройки
+            self._settings_footer.configure(text=self.t("footer", ver=VERSION))
+            self._settings_title.configure(text=self.t("btn_settings"))
+            self._btn_back.configure(text=self.t("btn_back"))
+            self._settings_vac_title.configure(text=self.t("vac_title"))
+            self._settings_test_btn.configure(text=self.t("vac_test_btn"))
+            self._settings_mon_title.configure(text=self.t("vac_mon_title"))
+            self._settings_mon_desc.configure(text=self.t("vac_mon_desc"))
+            self._settings_mon_out_lbl.configure(text=self.t("vac_mon_out"))
+            self.mon_btn.configure(text=self.t("vac_mon_start") if self.monitor is None else self.t("vac_mon_stop"))
+            self._settings_hk_title.configure(text=self.t("sec_hotkey"))
+            self._settings_hk_hint.configure(text=self.t("hk_hint"))
+            self._settings_autostart_title.configure(text=self.t("sec_autostart"))
+            self._autostart_chk.configure(text=self.t("autostart_chk"))
+            self._settings_lang_title.configure(text=self.t("sec_lang"))
+            # Статус-строка в заголовке
+            self._update_header_status()
+            self._update_vac_card()
+            # Строки микрофонов (пересоздаём)
+            self._build_mic_rows()
+        except Exception:
+            pass
+
+    def _rebuild_tray(self):
+        """Пересоздать трей с новым языком."""
+        try:
+            if self.tray_icon is not None:
+                self.tray_icon.stop()
+        except Exception:
+            pass
+        self._start_tray()
 
     # ═══════════════════════════ СПИСОК МИКРОФОНОВ ═══════════════════════════
     def _build_mic_rows(self):
@@ -731,7 +981,7 @@ class App:
         mics = [m for m in self.mics
                 if "virtual audio cable" not in (m.FriendlyName or "").lower()]
         if not mics:
-            ctk.CTkLabel(self.mic_list, text="Микрофоны не найдены", font=F_CAP,
+            ctk.CTkLabel(self.mic_list, text=self.t("mics_empty"), font=F_CAP,
                          text_color=DIM, anchor="w").pack(anchor="w", pady=8)
             return
 
@@ -752,7 +1002,7 @@ class App:
 
             row_bg = ACCENT_SOFT if is_active else CARD
             if excluded:
-                name_fg, name_font, tag, tag_fg, tag_bg = TEXT_3, F_CAP, "исключён", DANGER, SURFACE_2
+                name_fg, name_font, tag, tag_fg, tag_bg = TEXT_3, F_CAP, self.t("mic_excluded"), DANGER, SURFACE_2
             else:
                 name_fg, name_font = TEXT, (F_BODY_B if is_active else F_BODY)
                 tag, tag_fg, tag_bg = "", TEXT_3, SURFACE_2
@@ -816,7 +1066,7 @@ class App:
             # громкость (0–250%)
             vol_row = ctk.CTkFrame(card, fg_color="transparent")
             vol_row.pack(fill="x", padx=14, pady=(4, 8))
-            ctk.CTkLabel(vol_row, text="Громкость", font=F_MICRO, text_color=TEXT_3).pack(side="left", padx=(0, 8))
+            ctk.CTkLabel(vol_row, text=self.t("vol_label"), font=F_MICRO, text_color=TEXT_3).pack(side="left", padx=(0, 8))
             vol = self.get_mic_volume(mic)
             stored = self.mic_vol.get(mic.id)
             val = int(stored) if stored is not None else (100 if vol is None else int(round(vol * 100)))
@@ -1170,14 +1420,24 @@ class App:
                 self.index = 0
         else:
             self.index = 0
+        _dbg("refresh: mics=%d active=%d current=%r idx=%s" % (
+            len(self.mics), len(self.active),
+            self.current.FriendlyName if self.current else None, self.index))
 
     def set_default(self):
-        cfg = ms.comtypes.CoCreateInstance(
-            ms.CLSID_CPolicyConfigClient, ms.IPolicyConfig,
-            ms.comtypes.CLSCTX_INPROC_SERVER)
-        cfg.SetDefaultEndpoint(self.active[self.index].id, ms.ERole.eConsole.value)
+        _dbg("set_default: target=%r" % self.active[self.index].FriendlyName)
+        try:
+            cfg = ms.comtypes.CoCreateInstance(
+                ms.CLSID_CPolicyConfigClient, ms.IPolicyConfig,
+                ms.comtypes.CLSCTX_INPROC_SERVER)
+            cfg.SetDefaultEndpoint(self.active[self.index].id, ms.ERole.eConsole.value)
+        except Exception as e:
+            _dbg("set_default: FAILED: %r" % e)
+            raise
+        _dbg("set_default: ok")
 
     def _switch_to(self, mic):
+        _dbg("_switch_to: enter -> %r" % mic.FriendlyName)
         prev = self.current
         self.set_default()
         self.current = mic
@@ -1208,19 +1468,23 @@ class App:
         if self.router is not None and vac_ok:
             act = None
             if prev is not None and prev.id != mic.id and not self.is_excluded(prev):
-                act = ("Отменить", lambda pv=prev: self._switch_to(pv))
-            self.show_notification("🎤 Микрофон: " + name + "  →  Виртуальный микрофон", action=act)
+                act = ("Отменить" if self.lang == "ru" else "Undo", lambda pv=prev: self._switch_to(pv))
+            self.show_notification("🎤 " + name + "  →  " + self.t("vac_title"), action=act)
         elif self.router is not None and not vac_ok:
-            self.show_notification("🎤 Микрофон: " + name + "   ⚠️ VAC: " + (vac_err or "сбой"))
+            self.show_notification("🎤 " + name + "   ⚠️ VAC: " + (vac_err or "?"))
         else:
-            self.show_notification("🎤 Микрофон: " + name)
+            self.show_notification("🎤 " + name)
 
     def toggle(self):
+        _dbg("toggle: enter (active=%s)" % (len(self.active) if self.active else 0))
         self.refresh()
         if not self.active:
+            _dbg("toggle: no active mics — abort")
             return
         self.index = (self.index + 1) % len(self.active)
+        _dbg("toggle: target=%r" % self.active[self.index].FriendlyName)
         self._switch_to(self.active[self.index])
+        _dbg("toggle: done")
 
     def activate_mic(self, mic):
         if self.is_excluded(mic):
@@ -1242,9 +1506,9 @@ class App:
         self.refresh()
         self._animated_update(flash=False)
         if self.is_excluded(mic):
-            self.show_notification("🎤 Исключён: " + mic.FriendlyName)
+            self.show_notification("🎤 " + self.t("mic_excluded") + ": " + mic.FriendlyName)
         else:
-            self.show_notification("🎤 Возвращён: " + mic.FriendlyName)
+            self.show_notification("🎤 ✓ " + mic.FriendlyName)
 
     # ---------- громкость ----------
     def get_mic_volume(self, mic):
@@ -1269,6 +1533,7 @@ class App:
 
     # ---------- горячая клавиша ----------
     def on_hotkey(self):
+        _dbg("on_hotkey: called (thread=%s)" % threading.current_thread().name)
         self._hotkey_q.put(1)
 
     def _poll_hotkey(self):
@@ -1277,11 +1542,12 @@ class App:
         try:
             while True:
                 self._hotkey_q.get_nowait()
+                _dbg("poll: hotkey flag -> toggle()")
                 self.toggle()
         except queue.Empty:
             pass
-        except Exception:
-            pass
+        except Exception as e:
+            _dbg("poll: hotkey loop error: %r" % e)
         try:
             while True:
                 cmd = self._tray_q.get_nowait()
@@ -1301,6 +1567,13 @@ class App:
             self.root.after(100, self._poll_hotkey)
         except Exception:
             pass
+        self._poll_n = getattr(self, "_poll_n", 0) + 1
+        if self._poll_n % 300 == 0:  # ~30 c
+            try:
+                _lr = self.listener.listener.is_running if self.listener else None
+            except Exception:
+                _lr = "?"
+            _dbg("heartbeat: listener_is_running=%s" % _lr)
 
     def display_hotkey(self):
         s = self.hotkey.replace("<", "").replace(">", "")
@@ -1345,7 +1618,7 @@ class App:
         self._hk_capturing = True
         self._log("begin capture")
         try:
-            self.hk_field.configure(text="Нажмите клавишу… (Esc — отмена)",
+            self.hk_field.configure(text=self.t("hk_press"),
                                     fg_color=ACTIVE, hover_color=ACTIVE, text_color="#05231a")
         except Exception:
             pass
@@ -1368,7 +1641,7 @@ class App:
             self._end_hotkey_capture(restart_old=True)
             self._log("bind failed: %s" % e)
             from tkinter import messagebox
-            messagebox.showerror("Ошибка", "Не удалось начать ввод: %s" % e, parent=self.root)
+            messagebox.showerror(self.t("err_title"), self.t("err_hotkey_input", e=str(e)), parent=self.root)
 
     def _cap_on_key(self, event):
         if not self._hk_capturing:
@@ -1378,11 +1651,11 @@ class App:
             self._end_hotkey_capture(restart_old=True)
             return "break"
         if event.keysym in ms._TK_MOD_KEYS:
-            self._set_cap_text("Добавьте основную клавишу…")
+            self._set_cap_text(self.t("hk_add_main"))
             return "break"
         res = self._tk_key_to_spec(event)
         if res is None:
-            self._cap_fail("Эту клавишу нельзя назначить")
+            self._cap_fail(self.t("hk_invalid"))
             return "break"
         mods, main = res
         full = "+".join(sorted(mods) + [main])
@@ -1426,7 +1699,7 @@ class App:
     def _cap_fail(self, msg):
         self._end_hotkey_capture(restart_old=True)
         from tkinter import messagebox
-        messagebox.showerror("Неверная клавиша", msg, parent=self.root)
+        messagebox.showerror(self.t("err_badkey_title"), msg, parent=self.root)
 
     def _cap_apply(self, full):
         self._hk_capturing = False
@@ -1467,13 +1740,13 @@ class App:
         self.listener = ms.Hotkey(spec, self.on_hotkey)
         self.listener.start()
         try:
-            self.hk_badge_lbl.configure(text="Клавиша: " + self.display_hotkey())
-            self.switch_btn.configure(text="Сменить микрофон  (" + self.display_hotkey() + ")")
+            self.hk_badge_lbl.configure(text=self.t("hotkey_badge", hk=self.display_hotkey()))
+            self.switch_btn.configure(text=self.t("switch_btn", hk=self.display_hotkey()))
             self.hk_field.configure(text=self.display_hotkey(),
                                     fg_color=SURFACE_2, hover_color=ACCENT_SOFT, text_color=TEXT)
         except Exception:
             pass
-        self.show_notification("🔑 Горячая клавиша: " + self.display_hotkey())
+        self.show_notification(self.t("toast_hotkey", hk=self.display_hotkey()))
 
     def _log(self, msg):
         try:
@@ -1678,9 +1951,9 @@ class App:
         try:
             import pystray
             img = get_tray_image()
-            show_item = pystray.MenuItem("Показать окно", self._tray_show, default=True)
-            quit_item = pystray.MenuItem("Завершить сеанс программы", self._tray_quit)
-            self.tray_icon = pystray.Icon("MicSwitcher", img, "Переключатель микрофонов",
+            show_item = pystray.MenuItem(self.t("tray_show"), self._tray_show, default=True)
+            quit_item = pystray.MenuItem(self.t("tray_quit"), self._tray_quit)
+            self.tray_icon = pystray.Icon("MicSwitcher", img, self.t("tray_tooltip"),
                                           pystray.Menu(show_item, quit_item))
             threading.Thread(target=self.tray_icon.run, daemon=True).start()
         except Exception as e:
@@ -1703,25 +1976,24 @@ class App:
         try:
             if self.router is not None and self.current is not None:
                 self.hdr_dot.configure(text_color=ACTIVE)
-                self.hdr_sub.configure(text="Активен: " + self._clean_mic_name(self.current.FriendlyName)
-                                       + "  →  Виртуальный микрофон")
+                self.hdr_sub.configure(text=self.t("vac_status_active", name=self._clean_mic_name(self.current.FriendlyName)))
             elif getattr(self, "cable_idx", None) is not None:
                 self.hdr_dot.configure(text_color=WARNING)
-                self.hdr_sub.configure(text="Виртуальный микрофон: роутинг не активен")
+                self.hdr_sub.configure(text=self.t("vac_status_inactive"))
             else:
                 self.hdr_dot.configure(text_color=DANGER)
-                self.hdr_sub.configure(text="VAC не установлен — виртуальный микрофон недоступен")
+                self.hdr_sub.configure(text=self.t("vac_status_novac"))
         except Exception:
             pass
 
     def _update_vac_card(self):
         try:
             if self.cable_idx is not None and self.router is not None:
-                txt, fg, bg = "активен", ACTIVE, ACCENT_SOFT
+                txt, fg, bg = self.t("vac_active"), ACTIVE, ACCENT_SOFT
             elif self.cable_idx is not None:
-                txt, fg, bg = "не активен", WARNING, SURFACE_2
+                txt, fg, bg = self.t("vac_inactive"), WARNING, SURFACE_2
             else:
-                txt, fg, bg = "недоступен", DANGER, SURFACE_2
+                txt, fg, bg = self.t("vac_unavailable"), DANGER, SURFACE_2
             self.vac_status_lbl.configure(text=txt, text_color=fg)
             self.vac_status_pill.configure(fg_color=bg)
         except Exception:
@@ -1808,7 +2080,7 @@ class App:
             pass
 
     def test_virtual_mic(self):
-        self._set_status(self.vac_test_lbl, "Проверяю виртуальный микрофон…", DIM)
+        self._set_status(self.vac_test_lbl, self.t("vac_test_checking"), DIM)
         threading.Thread(target=self._run_vac_test, daemon=True).start()
 
     def _run_vac_test(self):
@@ -1818,7 +2090,7 @@ class App:
         cap = self._find_vac_capture()
         if render is None or cap is None:
             self.root.after(0, lambda: self._set_status(
-                self.vac_test_lbl, "VAC не найден — установите Virtual Audio Cable", WARNING))
+                self.vac_test_lbl, self.t("vac_test_notfound"), WARNING))
             return
         sr = 48000
         nch = max(1, int(cap["max_input_channels"]))
@@ -1849,16 +2121,15 @@ class App:
             in_s.stop(); in_s.close()
         except Exception as e:
             self.root.after(0, lambda e=e: self._set_status(
-                self.vac_test_lbl, "Ошибка при проверке: " + str(e), WARNING))
+                self.vac_test_lbl, self.t("vac_test_error", e=str(e)), WARNING))
             return
         arr = np.concatenate(collected) if collected else np.zeros((1, nch), "float32")
         rms = float(np.sqrt(np.mean(arr ** 2)))
         if rms > 5e-3:
-            msg = "Виртуальный микрофон работает (уровень %.3f). В Discord/Windows будет слышно." % rms
+            msg = self.t("vac_test_ok", rms="%.3f" % rms)
             self.root.after(0, lambda: self._set_status(self.vac_test_lbl, msg, ACTIVE))
         else:
-            msg = ("Сигнал слабый (уровень %.6f). Убедитесь, что в Discord выбран "
-                   "микрофон «%s»") % (rms, self.vac_name)
+            msg = self.t("vac_test_weak", rms="%.6f" % rms, vac=self.vac_name)
             self.root.after(0, lambda: self._set_status(self.vac_test_lbl, msg, WARNING))
 
     # ---------- прослушка виртуального микрофона ----------
@@ -1874,12 +2145,12 @@ class App:
     def start_monitor(self):
         cap = self._find_vac_capture()
         if cap is None:
-            self._mon_set("VAC не найден — установите Virtual Audio Cable", WARNING)
+            self._mon_set(self.t("vac_test_notfound"), WARNING)
             return
         name = self.mon_out_menu.get().strip()
         out = self._mon_by_name.get(name)
         if out is None:
-            self._mon_set("Выберите устройство вывода", WARNING)
+            self._mon_set(self.t("mon_select_out"), WARNING)
             return
         if out["hostapi"] != cap["hostapi"]:
             compat = [d for d in self._mon_devices if d["hostapi"] == cap["hostapi"]]
@@ -1888,17 +2159,17 @@ class App:
         try:
             m = ms.CableMonitor(cap["index"], out["index"])
             if not m.start():
-                self._mon_set("Не удалось начать прослушку: " + (m.last_error or ""), WARNING)
+                self._mon_set(self.t("mon_start_fail", e=(m.last_error or "")), WARNING)
                 return
         except Exception as e:
-            self._mon_set("Не удалось начать прослушку: " + str(e), WARNING)
+            self._mon_set(self.t("mon_start_fail", e=str(e)), WARNING)
             return
         self.monitor = m
         try:
-            self.mon_btn.configure(text="Остановить прослушку", fg_color=DANGER, hover_color="#d95560")
+            self.mon_btn.configure(text=self.t("vac_mon_stop"), fg_color=DANGER, hover_color="#d95560")
         except Exception:
             pass
-        self._mon_set("Слушайте: вирт. микрофон → «" + out["name"] + "»", ACTIVE)
+        self._mon_set(self.t("mon_listening", name=out["name"]), ACTIVE)
 
     def stop_monitor(self):
         if self.monitor is not None:
@@ -1908,16 +2179,16 @@ class App:
                 pass
             self.monitor = None
         try:
-            self.mon_btn.configure(text="Прослушать", fg_color=BTN, hover_color=BTN_HOVER)
+            self.mon_btn.configure(text=self.t("vac_mon_start"), fg_color=BTN, hover_color=BTN_HOVER)
         except Exception:
             pass
-        self._mon_set("Прослушка остановлена", DIM)
+        self._mon_set(self.t("mon_stopped"), DIM)
 
     # ---------- автозапуск ----------
     def _apply_autostart(self):
         on = bool(self.auto_var.get())
         ms.set_autostart(on)
-        self.show_notification("🚀 Автозапуск: " + ("включён" if on else "выключен"))
+        self.show_notification(self.t("toast_autostart_on" if on else "toast_autostart_off"))
 
 
 # Шрифты (заполняются в App.__init__ после создания окна)
@@ -1930,18 +2201,30 @@ _mutex = None
 def main():
     global _mutex
     # Защита от запуска второго экземпляра (иначе горячая клавиша сработает дважды)
+    _dbg("main: start (pid=%s)" % os.getpid())
     _mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\MicSwitcher_SingleInstance")
-    if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+    _gle = ctypes.windll.kernel32.GetLastError()
+    _dbg("main: mutex created, gle=%s" % _gle)
+    if _gle == 183:  # ERROR_ALREADY_EXISTS
         from tkinter import messagebox
+        lang = ms.load_lang()
+        d = STRINGS.get(lang, STRINGS["ru"])
         messagebox.showinfo(
-            "Переключатель микрофонов",
-            "Программа уже запущена — ищи её окно в трее или на рабочем столе.",
+            d.get("app_title", "Mic Switcher"),
+            d.get("msg_already_run", "Already running"),
         )
         return
 
     app = App()
+    _dbg("main: App() ok, hotkey=%r" % app.hotkey)
     app.listener = ms.Hotkey(app.hotkey, app.on_hotkey)
+    _dbg("main: Hotkey created")
     app.listener.start()
+    try:
+        _running = app.listener.listener.is_running
+    except Exception:
+        _running = "?"
+    _dbg("main: listener.start() done, is_running=%s" % _running)
     print("Горячая клавиша: %s" % app.display_hotkey())
     app.root.mainloop()
 
