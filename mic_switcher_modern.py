@@ -20,7 +20,6 @@ import customtkinter as ctk
 
 import mic_switcher as ms
 import sounddevice as sd
-import battery as bat
 
 # ─────────────────────────────────────────────────────────────
 # Дизайн-токены (та же палитра «аудио-консоль», что в mic_switcher.py)
@@ -272,47 +271,6 @@ def _glow_dot(color, size=20, levels=28):
         return None
 
 
-def _bt_icon(color, size=18):
-    """Иконка Bluetooth (руна ᛒ), нарисованная через PIL.
-
-    Текстовые глифы/эмодзи Bluetooth рендерятся в Tk нестабильно,
-    поэтому рисуем знак сами. Официальная геометрия — вертикальный
-    стержень + ДВЕ пересекающиеся в центре диагонали (крест) + два
-    коротких «крючка», соединяющих верх/низ стержня с правыми
-    концами диагоналей. (Раньше была одна зигзагообразная линия —
-    знак читался как «плюс с косой».) Сглаживание — отрисовка в 4
-    раза крупнее и уменьшение LANCZOS.
-    """
-    try:
-        from PIL import Image, ImageDraw
-    except Exception:
-        return None
-    try:
-        S = size * 4
-        img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-        d = ImageDraw.Draw(img)
-        w = max(2, int(S * 0.10))
-        T  = (0.50, 0.05)   # верх стержня
-        B  = (0.50, 0.95)   # низ стержня
-        R1 = (0.74, 0.28)   # правый верхний конец (крючок от верха)
-        R2 = (0.74, 0.72)   # правый нижний конец (крючок к низу)
-        L1 = (0.26, 0.28)   # левый верхний свободный конец
-        L2 = (0.26, 0.72)   # левый нижний свободный конец
-        # (диагонали R1→L2 и L1→R2 — прямые, пересекаются в центре C)
-        P = lambda p: (p[0] * S, p[1] * S)
-        # 5 отрезков: стержень + 2 диагонали (крест) + 2 крючка справа
-        for a, b in ((T, B), (T, R1), (R1, L2), (L1, R2), (R2, B)):
-            d.line([P(a), P(b)], fill=color, width=w)
-        for p in (T, B, R1, R2, L1, L2):
-            x, y = P(p)
-            r = w / 2
-            d.ellipse([x - r, y - r, x + r, y + r], fill=color)
-        img = img.resize((size, size), Image.LANCZOS)
-        return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
-    except Exception:
-        return None
-
-
 def _embedded_icon_bytes():
     """Байты встроенной иконки (base64, вшивается при сборке exe)."""
     b64 = ICON_B64 or getattr(ms, "ICON_B64", "")
@@ -422,12 +380,6 @@ class App:
 
         # ── Данные ──
         self.refresh()
-
-        # Заряд беспроводных устройств (G435, BT-наушники): фоновый мониторинг
-        self.batt_mon = bat.BatteryMonitor(interval=30)
-        self.batt_mon.start()
-        self._batt_warned = set()
-        self.root.after(30000, self._battery_tick)
 
         # Виртуальный микрофон (VAC)
         self.cable_idx = ms.find_cable_input()
@@ -861,26 +813,6 @@ class App:
                 pill = ctk.CTkFrame(top, fg_color=tag_bg, corner_radius=999)
                 pill.pack(side="left", padx=(8, 0))
                 ctk.CTkLabel(pill, text=tag, font=F_MICRO, text_color=tag_fg).pack(padx=8, pady=3)
-            # Заряд беспроводного устройства (Bluetooth / G HUB)
-            batt = bat.match_battery(mic.FriendlyName, self.batt_mon.snapshot())
-            batt_lbl = None
-            if batt is not None:
-                pct = batt.percent
-                bfg = ACTIVE if pct >= 50 else (WARNING if pct >= 20 else DANGER)
-                bbg = "#12352b" if pct >= 50 else ("#3a2f12" if pct >= 20 else "#3a1a1a")
-                btxt = "🔋 " + str(pct) + "%" + (" ⚡" if batt.charging else "")
-                bpill = ctk.CTkFrame(top, fg_color=bbg, corner_radius=999)
-                batt_lbl = ctk.CTkLabel(bpill, text=btxt, font=F_MICRO, text_color=bfg)
-                batt_lbl.pack(padx=8, pady=3)
-                bpill.pack(side="left", padx=(8, 0))
-            elif bat.is_wireless_name(mic.FriendlyName):
-                # Иконка Bluetooth вместо пиллы «📡 беспроводной».
-                # text="" обязателен: в CTk 6.0 плейсхолдер «CTkLabel»
-                # подставляется, если текст не задан явно.
-                bt_img = _bt_icon(BTN)
-                if bt_img is not None:
-                    ctk.CTkLabel(top, image=bt_img, text="").pack(side="left", padx=(8, 0))
-
             # громкость (0–250%)
             vol_row = ctk.CTkFrame(card, fg_color="transparent")
             vol_row.pack(fill="x", padx=14, pady=(4, 8))
@@ -930,7 +862,7 @@ class App:
                 card.configure(cursor="hand2")
             self.mic_rows.append({"mic": mic, "card": card, "label": name_lbl,
                                   "slider": slider, "val": val_lbl, "cb": cb,
-                                  "batt": batt_lbl, "dot": dot, "dot_levels": dot_levels})
+                                  "dot": dot, "dot_levels": dot_levels})
         self._resync_layout()
 
     def _resync_layout(self):
@@ -1701,10 +1633,6 @@ class App:
 
     # ---------- окно / трей ----------
     def quit_app(self):
-        try:
-            self.batt_mon.stop()
-        except Exception:
-            pass
         if self.tray_icon is not None:
             try:
                 self.tray_icon.stop()
@@ -1770,46 +1698,6 @@ class App:
         self._build_mic_rows()
         self._update_header_status()
         self._update_vac_card()
-        self._update_battery_pills()
-
-    def _update_battery_pills(self):
-        """Обновить пилюли заряда на карточках микрофонов."""
-        for row in self.mic_rows:
-            lbl = row.get("batt")
-            if lbl is None:
-                continue
-            b = bat.match_battery(row["mic"].FriendlyName, self.batt_mon.snapshot())
-            if b is None:
-                continue
-            pct = b.percent
-            fg = ACTIVE if pct >= 50 else (WARNING if pct >= 20 else DANGER)
-            lbl.configure(text="🔋 " + str(pct) + "%" + (" ⚡" if b.charging else ""),
-                          text_color=fg)
-
-    def _battery_tick(self):
-        """Раз в 30 с подтянуть новый заряд (лёгкое обновление без пересборки UI)."""
-        try:
-            self._update_battery_pills()
-            # Предупреждение о низком заряде (один раз, пока не поднимется выше 30%)
-            for row in self.mic_rows:
-                if row.get("batt") is None:
-                    continue
-                b = bat.match_battery(row["mic"].FriendlyName, self.batt_mon.snapshot())
-                if b is None:
-                    continue
-                key = b.device_name
-                if b.percent < 20 and key not in self._batt_warned:
-                    self._batt_warned.add(key)
-                    self.show_notification("🔋 " + b.device_name + ": " + str(b.percent) +
-                                           "% — заряд низкий")
-                elif b.percent >= 30:
-                    self._batt_warned.discard(key)
-        except Exception:
-            pass
-        try:
-            self.root.after(30000, self._battery_tick)
-        except Exception:
-            pass
 
     def _update_header_status(self):
         try:
