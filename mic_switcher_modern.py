@@ -52,33 +52,6 @@ def _dbg(msg):
 # Midnight) и подхватываются из установленного Discord автоматически.
 # ─────────────────────────────────────────────────────────────
 THEMES = {
-    # Discord Dark — «классическая» тёмная тема клиента
-    "dark": {
-        "bg": "#313338",           # фон переписки
-        "card": "#2B2D31",         # карточки / панели
-        "surface2": "#35373C",     # hover-поверхность
-        "card_hover": "#35373C",
-        "border": "#1E1F22",       # разделители
-        "text": "#F2F3F5",
-        "dim": "#B5BAC1",
-        "text3": "#949BA4",
-        "btn": "#5865F2",          # blurple
-        "btn_hover": "#4752C4",
-        "active": "#23A55A",       # «онлайн»-зелёный
-        "accent_soft": "#3C4076",  # выделенная карточка (blurple-тон)
-        "danger": "#DA373C",
-        "danger_hover": "#A12828",
-        "warning": "#F0B232",
-        "keycap_bg": "#1E1F22",
-        "keycap_border": "#3F4147",
-        "btn2": "#4E5058",         # вторичная кнопка Discord
-        "btn2_hover": "#6D6F78",
-        "btn2_text": "#FFFFFF",
-        "track": "#4E5058",        # дорожка слайдера
-        "input": "#1E1F22",        # выпадающие списки
-        "on_accent": "#FFFFFF",
-        "switch_off": "#80848E",
-    },
     # Discord Light
     "light": {
         "bg": "#FFFFFF",
@@ -106,13 +79,67 @@ THEMES = {
         "on_accent": "#FFFFFF",
         "switch_off": "#B5BAC1",
     },
-    # Discord Midnight — почти чёрная тема
-    "midnight": {
+    # Discord Dark — классическая тёмная тема клиента
+    "dark": {
+        "bg": "#313338",
+        "card": "#2B2D31",
+        "surface2": "#35373C",
+        "card_hover": "#35373C",
+        "border": "#1E1F22",
+        "text": "#F2F3F5",
+        "dim": "#B5BAC1",
+        "text3": "#949BA4",
+        "btn": "#5865F2",
+        "btn_hover": "#4752C4",
+        "active": "#23A55A",
+        "accent_soft": "#3C4076",
+        "danger": "#DA373C",
+        "danger_hover": "#A12828",
+        "warning": "#F0B232",
+        "keycap_bg": "#1E1F22",
+        "keycap_border": "#3F4147",
+        "btn2": "#4E5058",
+        "btn2_hover": "#6D6F78",
+        "btn2_text": "#FFFFFF",
+        "track": "#4E5058",
+        "input": "#1E1F22",
+        "on_accent": "#FFFFFF",
+        "switch_off": "#80848E",
+    },
+    # Discord «Пепел» (Ash) — приглушённая почти чёрная
+    "ash": {
+        "bg": "#1D1D21",
+        "card": "#16161A",
+        "surface2": "#26262B",
+        "card_hover": "#26262B",
+        "border": "#0E0E11",
+        "text": "#F2F3F5",
+        "dim": "#B5BAC1",
+        "text3": "#949BA4",
+        "btn": "#5865F2",
+        "btn_hover": "#4752C4",
+        "active": "#23A55A",
+        "accent_soft": "#2E2F52",
+        "danger": "#DA373C",
+        "danger_hover": "#A12828",
+        "warning": "#F0B232",
+        "keycap_bg": "#131316",
+        "keycap_border": "#2B2D31",
+        "btn2": "#2B2C31",
+        "btn2_hover": "#3F4147",
+        "btn2_text": "#FFFFFF",
+        "track": "#2E2F34",
+        "input": "#131316",
+        "on_accent": "#FFFFFF",
+        "switch_off": "#80848E",
+    },
+    # Discord Чёрная (Onyx) — чистый чёрный фон
+    "onyx": {
         "bg": "#000000",
         "card": "#0E0F11",
         "surface2": "#1A1B1E",
         "card_hover": "#1A1B1E",
-        "border": "#232529",
+        "border": "#1B1C20",
         "text": "#F2F3F5",
         "dim": "#B5BAC1",
         "text3": "#949BA4",
@@ -123,18 +150,21 @@ THEMES = {
         "danger": "#DA373C",
         "danger_hover": "#A12828",
         "warning": "#F0B232",
-        "keycap_bg": "#1A1B1E",
+        "keycap_bg": "#0E0F11",
         "keycap_border": "#2B2D31",
         "btn2": "#2B2D31",
         "btn2_hover": "#3F4147",
         "btn2_text": "#FFFFFF",
         "track": "#2B2D31",
-        "input": "#1A1B1E",
+        "input": "#121316",
         "on_accent": "#FFFFFF",
         "switch_off": "#80848E",
     },
 }
-THEME_ORDER = ("dark", "light", "midnight")
+THEME_ORDER = ("light", "dark", "ash", "onyx")
+
+# Цвета фона тем Discord — по ним авто-режим определяет выбранную тему
+THEME_BG = {"light": "#FFFFFF", "dark": "#313338", "ash": "#1D1D21", "onyx": "#000000"}
 
 # Текущие цвета (перезаписываются apply_palette при смене темы)
 BG = CARD = SURFACE_2 = CARD_HOVER = BORDER = TEXT = DIM = TEXT_3 = "#000000"
@@ -225,13 +255,15 @@ def _windows_is_light():
         return False
 
 
-def norm_theme(value):
+def _map_theme_name(value):
     """Название темы Discord -> ключ палитры приложения."""
     v = (value or "").lower()
-    if v in ("midnight", "darker", "onyx"):
-        return "midnight"
     if v == "light":
         return "light"
+    if v in ("ash", "ashen", "pepel", "darker", "midnight", "dim"):
+        return "ash"
+    if v in ("black", "onyx", "oled", "pure"):
+        return "onyx"
     if v in ("system", "auto"):
         return "light" if _windows_is_light() else "dark"
     return "dark"
@@ -262,11 +294,19 @@ def _extract_discord_theme(data):
     return None
 
 
-_last_detected = [None]
+def _nearest_theme(bg_hex, limit=48):
+    """Ближайшая тема Discord по цвету фона (None, если слишком далеко)."""
+    rgb = _hex_to_rgb(bg_hex)
+    best, best_dist = None, 1e9
+    for key, hex_value in THEME_BG.items():
+        d = _color_dist(rgb, _hex_to_rgb(hex_value))
+        if d < best_dist:
+            best, best_dist = key, d
+    return best if best_dist <= limit else None
 
 
-def detect_discord_theme():
-    """Тема, выбранная в Discord: (ключ палитры, путь к файлу) или (None, None)."""
+def _read_discord_theme_name():
+    """Сырое имя темы из localStorage Discord: (name, путь) или (None, None)."""
     for d in discord_leveldb_dirs():
         try:
             names = [n for n in os.listdir(d) if n.endswith((".ldb", ".log"))]
@@ -279,9 +319,8 @@ def detect_discord_theme():
                 files.append((os.path.getmtime(p), p))
             except Exception:
                 pass
-        # .log — свежие записи без сжатия, .ldb — старые блоки: свежие проверяем первыми
+        # .log — свежие записи без сжатия, .ldb — старые блоки
         files.sort(key=lambda x: (x[0], x[1].endswith(".log")), reverse=True)
-        counts = {"midnight": 0, "dark": 0, "light": 0}
         for _, p in files[:8]:
             try:
                 with open(p, "rb") as f:
@@ -290,21 +329,29 @@ def detect_discord_theme():
                 continue
             val = _extract_discord_theme(data)
             if val:
-                if _last_detected[0] != val:
-                    _last_detected[0] = val
-                    _dbg("theme: discord=%s (%s)" % (val, os.path.basename(p)))
-                return norm_theme(val), p
-            # Запасной путь: каких значений темы в файле больше
-            counts["midnight"] += data.count(b'"midnight"')
-            counts["dark"] += data.count(b'"dark"')
-            counts["light"] += data.count(b'"light"')
-        if counts["midnight"]:
-            return "midnight", None
-        if counts["dark"] > counts["light"]:
-            return "dark", None
-        if counts["light"]:
-            return "light", None
+                return val, p
     return None, None
+
+
+def detect_discord_theme():
+    """Тема Discord для авто-режима: (ключ палитры, источник).
+
+    Вызывается ОДИН раз при старте приложения. Сначала пробуем снять цвет
+    окна Discord (так подхватываются и клиентские темы вроде «Пепла»),
+    затем читаем данные клиента; если ничего не вышло — тёмная тема.
+    """
+    colors = sample_discord_colors()
+    if colors:
+        key = _nearest_theme(colors[0])
+        _dbg("theme: window bg=%s -> %s" % (colors[0], key))
+        if key:
+            return key, "window"
+    name, path = _read_discord_theme_name()
+    if name:
+        key = _map_theme_name(name)
+        _dbg("theme: discord=%s -> %s" % (name, key))
+        return key, "file"
+    return "dark", "none"
 
 
 # ─────────────────────────────────────────────────────────────
@@ -340,77 +387,6 @@ def _color_dist(c1, c2):
 def _luminance(rgb):
     r, g, b = [v / 255.0 for v in rgb]
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
-
-
-def palette_from_colors(bg_rgb, panel_rgb):
-    """Собрать полную палитру из фона чата и цвета панелей Discord."""
-    dark = _luminance(bg_rgb) < 0.5
-    if _color_dist(bg_rgb, panel_rgb) < 8:
-        # панели в Discord всегда чуть темнее фона (и в тёмной, и в светлой теме)
-        panel_rgb = _mix(bg_rgb, (0, 0, 0), 0.05)
-    white, black = (255, 255, 255), (0, 0, 0)
-    if dark:
-        card = panel_rgb
-        card_hover = _mix(card, white, 0.07)
-        surface2 = _mix(card, white, 0.07)
-        border = _mix(panel_rgb, black, 0.35)
-        keycap_bg = _mix(panel_rgb, black, 0.35)
-        keycap_border = _mix(panel_rgb, white, 0.12)
-        btn2 = _mix(panel_rgb, white, 0.14)
-        btn2_hover = _mix(panel_rgb, white, 0.26)
-        btn2_text = "#FFFFFF"
-        track = _mix(panel_rgb, white, 0.16)
-        input_bg = _mix(panel_rgb, black, 0.28)
-        text, dim, text3 = "#F2F3F5", "#B5BAC1", "#949BA4"
-        active = "#23A55A"
-        danger, danger_hover = "#DA373C", "#A12828"
-        warning = "#F0B232"
-        switch_off = "#80848E"
-        accent_soft = _mix(card, _hex_to_rgb("#5865F2"), 0.30)
-    else:
-        card = panel_rgb
-        card_hover = _mix(card, black, 0.05)
-        surface2 = _mix(card, black, 0.05)
-        border = _mix(bg_rgb, black, 0.12)
-        keycap_bg = _mix(bg_rgb, black, 0.06)
-        keycap_border = _mix(bg_rgb, black, 0.12)
-        btn2 = _mix(bg_rgb, black, 0.08)
-        btn2_hover = _mix(bg_rgb, black, 0.16)
-        btn2_text = "#060607"
-        track = _mix(bg_rgb, black, 0.12)
-        input_bg = "#FFFFFF"
-        text, dim, text3 = "#060607", "#4E5058", "#80848E"
-        active = "#248046"
-        danger, danger_hover = "#D83C3E", "#B03234"
-        warning = "#C27C0E"
-        switch_off = "#B5BAC1"
-        accent_soft = _mix(card, _hex_to_rgb("#5865F2"), 0.18)
-    return {
-        "bg": _rgb_to_hex(bg_rgb),
-        "card": _rgb_to_hex(card),
-        "surface2": _rgb_to_hex(surface2),
-        "card_hover": _rgb_to_hex(card_hover),
-        "border": _rgb_to_hex(border),
-        "text": text,
-        "dim": dim,
-        "text3": text3,
-        "btn": "#5865F2",
-        "btn_hover": "#4752C4",
-        "active": active,
-        "accent_soft": _rgb_to_hex(accent_soft),
-        "danger": danger,
-        "danger_hover": danger_hover,
-        "warning": warning,
-        "keycap_bg": _rgb_to_hex(keycap_bg),
-        "keycap_border": _rgb_to_hex(keycap_border),
-        "btn2": _rgb_to_hex(btn2),
-        "btn2_hover": _rgb_to_hex(btn2_hover),
-        "btn2_text": btn2_text,
-        "track": _rgb_to_hex(track),
-        "input": _rgb_to_hex(input_bg),
-        "on_accent": "#FFFFFF",
-        "switch_off": switch_off,
-    }
 
 
 class _BMIH(ctypes.Structure):
@@ -547,7 +523,7 @@ def save_ui_cfg(cfg):
 ICON_B64 = ""
 
 # Релиз
-VERSION = "1.3.3"
+VERSION = "1.4.0"
 
 # ─────────────────────────────────────────────────────────────
 # Локализация (RU / EN)
@@ -622,16 +598,17 @@ STRINGS = {
         "topmost_chk":        "Окно поверх остальных окон",
         "sec_theme":          "Оформление",
         "theme_auto":         "Авто — как в Discord",
-        "theme_dark":         "Discord Dark",
-        "theme_light":        "Discord Light",
-        "theme_midnight":     "Discord Midnight",
+        "theme_light":        "Discord Светлая",
+        "theme_dark":         "Discord Тёмная",
+        "theme_ash":          "Discord Пепел",
+        "theme_onyx":         "Discord Чёрная",
         "theme_src_discord":  "Тема взята из Discord: {name}",
-        "theme_src_sampled":  "Тема снята с окна Discord: фон {bg} · панели {panel}",
         "theme_src_manual":   "Тема выбрана вручную",
-        "theme_src_none":     "Discord не найден — тёмная тема Dark",
-        "theme_name_dark":    "Dark",
-        "theme_name_light":   "Light",
-        "theme_name_midnight":"Midnight",
+        "theme_src_none":     "Discord не найден — Discord Тёмная",
+        "theme_name_light":   "Светлая",
+        "theme_name_dark":    "Тёмная",
+        "theme_name_ash":     "Пепел",
+        "theme_name_onyx":    "Чёрная",
     },
     "en": {
         "app_title":          "Mic Switcher",
@@ -702,16 +679,17 @@ STRINGS = {
         "topmost_chk":        "Window always on top",
         "sec_theme":          "Appearance",
         "theme_auto":         "Auto — follow Discord",
-        "theme_dark":         "Discord Dark",
         "theme_light":        "Discord Light",
-        "theme_midnight":     "Discord Midnight",
+        "theme_dark":         "Discord Dark",
+        "theme_ash":          "Discord Ash",
+        "theme_onyx":         "Discord Black",
         "theme_src_discord":  "Theme from Discord: {name}",
-        "theme_src_sampled":  "Sampled from the Discord window: bg {bg} · panels {panel}",
         "theme_src_manual":   "Theme chosen manually",
-        "theme_src_none":     "Discord not found — Dark theme",
-        "theme_name_dark":    "Dark",
+        "theme_src_none":     "Discord not found — Discord Dark",
         "theme_name_light":   "Light",
-        "theme_name_midnight":"Midnight",
+        "theme_name_dark":    "Dark",
+        "theme_name_ash":     "Ash",
+        "theme_name_onyx":    "Black",
     },
 }
 
@@ -1044,11 +1022,15 @@ class DiscordSelect(ctk.CTkFrame):
     прямоугольника. Поэтому поле собираем сами, а список показываем tk.Menu.
     """
 
-    def __init__(self, master, values=None, command=None, height=40, font=None):
+    def __init__(self, master, values=None, command=None, height=40, font=None,
+                 on_open=None):
         super().__init__(master, fg_color=INPUT_BG, corner_radius=8,
                          height=height, border_width=0)
         self._values = list(values or [])
         self._command = command
+        # Колбэк перед раскрытием: список устройств мог измениться, пока
+        # пользователь сидит в настройках (подключил/отключил наушники).
+        self._on_open = on_open
         self._current = self._values[0] if self._values else ""
         self._font = font or ctk.CTkFont(family=FONT, size=13)
         self._label = ctk.CTkLabel(self, text=self._current, font=self._font,
@@ -1111,6 +1093,11 @@ class DiscordSelect(ctk.CTkFrame):
             pass
 
     def _open(self, _e=None):
+        if self._on_open is not None:
+            try:
+                self._on_open()
+            except Exception as e:
+                _dbg("select: on_open failed: %r" % e)
         try:
             menu = tk.Menu(self, tearoff=0, bd=0, relief="flat",
                            activeborderwidth=0, bg=INPUT_BG, fg=TEXT,
@@ -1147,7 +1134,6 @@ class App:
         self._hk_capturing = False
         self._cap_old_listener = None
         self._hotkey_q = queue.Queue()
-        self._theme_reload = threading.Event()
         self._lvl = 0.0
         self.router = None
         self.monitor = None
@@ -1163,6 +1149,9 @@ class App:
         # theme_mode: "auto" (как в Discord) или конкретная тема
         self._ui_cfg = load_ui_cfg()
         self._theme_mode = self._ui_cfg.get("theme_mode") or "auto"
+        # старые режимы (midnight/darker) больше не существуют — уходим в «Авто»
+        if self._theme_mode != "auto" and self._theme_mode not in THEMES:
+            self._theme_mode = "auto"
         self._apply_theme_mode(rebuild=False)
         _dbg("theme: start mode=%s source=%s bg=%s"
              % (self._theme_mode, self._theme_source, self._palette.get("bg")))
@@ -1229,9 +1218,6 @@ class App:
 
         self._start_tray()
         self.root.after(100, self._poll_hotkey)
-        # Слежение за темой Discord (если выбрано «Авто — как в Discord»)
-        threading.Thread(target=self._watch_discord_theme, daemon=True,
-                         name="MicSwitcherTheme").start()
 
     def t(self, key, **kw):
         """Вернуть строку локализованного текста для текущего языка."""
@@ -1250,14 +1236,10 @@ class App:
         mode = getattr(self, "_theme_mode", "auto")
         if mode in THEMES:
             return mode, "manual", dict(THEMES[mode])
-        colors = sample_discord_colors()
-        if colors:
-            bg, panel = colors
-            return "auto", "discord-window", palette_from_colors(_hex_to_rgb(bg), _hex_to_rgb(panel))
-        detected, _src = detect_discord_theme()
-        if detected:
-            return detected, "discord-file", dict(THEMES[detected])
-        return "dark", "none", dict(THEMES["dark"])
+        key, source = detect_discord_theme()
+        if key not in THEMES:
+            key, source = "dark", "none"
+        return key, source, dict(THEMES[key])
 
     def _apply_theme_mode(self, rebuild=True):
         """Пересчитать тему из режима и (при rebuild) перерисовать интерфейс."""
@@ -1287,11 +1269,9 @@ class App:
         return [self.theme_label(m) for m in ("auto",) + THEME_ORDER]
 
     def theme_source_text(self):
-        if self._theme_source == "discord-window":
-            pal = getattr(self, "_palette", {})
-            return self.t("theme_src_sampled", bg=pal.get("bg", "?"), panel=pal.get("card", "?"))
-        if self._theme_source == "discord-file":
-            return self.t("theme_src_discord", name=self.t("theme_name_" + self.theme))
+        if self._theme_source in ("window", "file"):
+            return self.t("theme_src_discord",
+                          name=self.t("theme_name_" + self.theme))
         if self._theme_source == "manual":
             return self.t("theme_src_manual")
         return self.t("theme_src_none")
@@ -1359,54 +1339,6 @@ class App:
             self.root.after(150, self._repaint_cards)
         except Exception as e:
             _dbg("theme: rebuild failed: %r" % e)
-
-    def _apply_detected_theme(self):
-        try:
-            if self._theme_mode != "auto":
-                return
-            self._apply_theme_mode(rebuild=True)
-            _dbg("theme: switched to %s (%s, bg=%s)"
-                 % (self.theme, self._theme_source, getattr(self, "_palette", {}).get("bg")))
-        except Exception as e:
-            _dbg("theme: apply detected failed: %r" % e)
-
-    def _theme_signature(self):
-        """Отпечаток темы Discord: цвета окна, а если окно недоступно — данные клиента."""
-        if getattr(self, "_theme_mode", "auto") != "auto":
-            return None
-        colors = sample_discord_colors()
-        if colors:
-            return ("win",) + colors
-        detected, _src = detect_discord_theme()
-        return ("file", detected)
-
-    def _watch_discord_theme(self):
-        """Фон: сменили тему в Discord — подстраиваемся (только режим «Авто»)."""
-        last = self._theme_signature()
-        pending = None
-        while True:
-            time.sleep(5)
-            try:
-                sig = self._theme_signature()
-                if sig is None or sig == last:
-                    pending = None
-                    continue
-                # Окно Discord свернули/закрыли/перекрыли: оставляем снятые цвета
-                if sig[0] == "file" and getattr(self, "_theme_source", "") == "discord-window":
-                    last = sig
-                    pending = None
-                    continue
-                # Снимок с окна применяем, только если он повторился дважды:
-                # одиночный «мусорный» кадр (перекрытие, анимация) не перекрасит UI.
-                if sig[0] == "win":
-                    if pending is None or pending != sig:
-                        pending = sig
-                        continue
-                pending = None
-                last = sig
-                self._theme_reload.set()
-            except Exception as e:
-                _dbg("theme watch: %r" % e)
 
     def _initial_fit(self):
         self._resync_layout()
@@ -1584,7 +1516,8 @@ class App:
         self._settings_mon_out_lbl = ctk.CTkLabel(dev_row, text=self.t("vac_mon_out"), font=F_CAP, text_color=DIM)
         self._settings_mon_out_lbl.pack(side="left")
         self.mon_out_menu = DiscordSelect(dev_row, values=[], command=lambda v: None,
-                                          height=40, font=F_BODY)
+                                          height=40, font=F_BODY,
+                                          on_open=self._refresh_monitor_devices)
         self.mon_out_menu.pack(side="left", fill="x", expand=True, padx=(8, 0))
         try:
             self.mon_out_menu.set("—")
@@ -1772,6 +1705,35 @@ class App:
         except Exception:
             pass
 
+    def _refresh_monitor_devices(self, keep_current=True):
+        """Перечитать устройства вывода и обновить выпадающий список.
+
+        Вызывается при каждом раскрытии списка: пока окно настроек открыто,
+        пользователь может подключить или отключить гарнитуру.
+        """
+        try:
+            devices = self._list_monitor_devices()
+        except Exception as e:
+            _dbg("mon: list devices failed: %r" % e)
+            devices = []
+        if not devices:
+            return False
+        names = [d["name"] for d in devices]
+        try:
+            current = self.mon_out_menu.get().strip()
+        except Exception:
+            current = ""
+        try:
+            self.mon_out_menu.set_values(names)
+            if keep_current and current in names:
+                self.mon_out_menu.set(current)
+            else:
+                self.mon_out_menu.set(names[self._find_default_index(devices)])
+            return True
+        except Exception as e:
+            _dbg("mon: menu update failed: %r" % e)
+            return False
+
     def _refresh_settings_values(self):
         if not self._hk_capturing:
             try:
@@ -1782,14 +1744,10 @@ class App:
             self.auto_var.set(ms.autostart_enabled())
         except Exception:
             pass
-        devices = self._list_monitor_devices()
-        if devices:
-            names = [d["name"] for d in devices]
-            try:
-                self.mon_out_menu.set_values(names)
-                self.mon_out_menu.set(names[self._find_default_index(devices)])
-            except Exception:
-                pass
+        if not self._refresh_monitor_devices():
+            # Устройства могут появиться чуть позже (после старта Windows,
+            # когда VAC ещё инициализируется) — пробуем ещё раз.
+            self.root.after(900, self._refresh_monitor_devices)
         if self.monitor is not None:
             try:
                 self.mon_btn.configure(text=self.t("vac_mon_stop"), fg_color=DANGER,
@@ -2520,14 +2478,6 @@ class App:
                     self.quit_app()
         except queue.Empty:
             pass
-        except Exception:
-            pass
-        # Фоновая нить только поднимает флаг, а UI пересобираем здесь,
-        # в главном потоке Tk (после() из чужой нити — источник зависаний).
-        try:
-            if self._theme_reload.is_set():
-                self._theme_reload.clear()
-                self._apply_detected_theme()
         except Exception:
             pass
         try:
@@ -3264,6 +3214,11 @@ class App:
             return
         name = self.mon_out_menu.get().strip()
         out = self._mon_by_name.get(name)
+        if out is None:
+            # Список устарел (устройство отключили/подключили) — обновляем и пробуем снова
+            if self._refresh_monitor_devices(keep_current=False):
+                name = self.mon_out_menu.get().strip()
+                out = self._mon_by_name.get(name)
         if out is None:
             self._mon_set(self.t("mon_select_out"), WARNING)
             return

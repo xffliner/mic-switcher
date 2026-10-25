@@ -2,45 +2,50 @@
 
 [Русский](#переключатель-микрофонов) · [English](#micswitcher-mic-switcher)
 
-![Скриншот: Discord Dark](screenshot.png)
+Переключает микрофон «по умолчанию» в Windows одним нажатием клавиши и умеет
+роутить звук в виртуальный микрофон для Discord. Интерфейс — в стиле Discord
+с четырьмя темами клиента.
 
-Портативное приложение — папка `MicSwitcher` с `MicSwitcher.exe` внутри, —
-которое мгновенно переключает микрофон «по умолчанию» по горячей клавише.
-Работает и с виртуальным микрофоном (Virtual Audio Cable): удобно, когда в
-Discord/Zoom уже настроен виртуальный вход и перестраивать его не нужно.
+**Версия 1.4.0** · Windows 10/11 · Python не нужен
 
-**Версия:** 1.3.3 · **Платформа:** Windows 10/11 · **Python не требуется**
+![Приложение](screenshot.png)
 
-## Возможности
+## Что скачать
 
-- ⌨️ **Переключение по горячей клавише** — дефолтный микрофон меняется одним нажатием
-- 🎧 **Виртуальный микрофон для Discord** — звук автоматически роутится в VAC, вход в Discord не меняется
-- 🔊 **Громкость каждого микрофона** (0–250%, колесо мыши) + сброс в один клик
-- ✖ **Исключение микрофонов** из переключения (правый клик или тумблер на карточке)
-- 🎨 **Интерфейс в стиле Discord** — палитры Dark / Light / Midnight, blurple-акцент, карточки и тумблеры как в клиенте
-- 🪞 **Авто-тема «как в Discord»** — приложение снимает цвета с окна запущенного Discord, поэтому подхватывает даже клиентские темы (например, «Пепел») и перекрашивается, когда тему меняют
-- 🔔 **Трей-иконка** — сворачивается в трей, иконка закрепляется в видимой области, повторный запуск поднимает окно
-- 🚀 **Автозапуск** при входе в Windows
-- 🌐 **Два языка**: русский и английский
-- 🧯 **Один экземпляр**: повторный запуск не создаёт второй процесс и двойные горячие клавиши
-- 📄 **Отладочный лог**: `micswitcher_debug.log` рядом с exe (в `%TEMP%`, если папка недоступна)
+| Файл | Для чего |
+|---|---|
+| **`MicSwitcher-Setup-1.4.0.exe`** ⭐ | **Установщик (рекомендуется).** Ставит приложение в `%LOCALAPPDATA%\Programs\MicSwitcher`, при желании — **VAC Lite** (драйвер виртуального микрофона), создаёт ярлык на Рабочем столе и в меню «Пуск», добавляет запись в «Программы и компоненты» с деинсталлятором |
+| `MicSwitcher-1.4.0.exe` | **Портативная версия.** Один exe, без установки. Запустить и пользоваться; настройки хранятся рядом с файлом |
+| `VAC-Lite.zip` | **Virtual Audio Cable Lite** — драйвер виртуального микрофона (Line 1). Нужен только если хотите, чтобы Discord слышал переключённый микрофон через виртуальный вход |
 
-![Скриншот: Discord Light](screenshot-light.png)
+![Установщик](screenshot-setup.png)
 
 ## Установка
 
-1. Скачайте архив **`MicSwitcher-v1.3.3.zip`** со страницы [Releases](https://github.com/xffliner/mic-switcher/releases) и распакуйте его
-2. Запустите `MicSwitcher.exe` из папки `MicSwitcher`. **Python не нужен.** Все файлы папки — единый комплект (сборка `onedir`: приложение не распаковывается в `%TEMP%` и не требует прав администратора)
-3. Первый запуск создаёт рядом с exe файл настроек `mic_switcher.json`
+### Вариант 1 — установщик (рекомендуется)
 
-## Виртуальный микрофон (для Discord)
+1. Скачайте **`MicSwitcher-Setup-1.4.0.exe`** и запустите
+2. Отметьте нужное:
+   - **Установить VAC Lite** — драйвер виртуального микрофона (потребуются права администратора, после установки драйвера может понадобиться перезагрузка);
+   - **Создать ярлык на Рабочем столе**;
+   - **Запустить приложение после установки**
+3. Нажмите **«Установить»**
 
-Чтобы звук с переключаемого микрофона шёл в Discord через виртуальный вход,
-нужен драйвер **Virtual Audio Cable**:
+Всё ставится в пользовательскую папку, права администратора нужны только для драйвера VAC.
+Удалить можно через «Параметры → Приложения» или `uninstall.bat` в папке установки.
 
-1. Установите VAC ([vb-audio.com](https://vb-audio.com/Cable/))
+### Вариант 2 — портативно
+
+Скачайте **`MicSwitcher-1.4.0.exe`** и запустите из любой папки. Настройки (`mic_switcher.json`)
+создаются рядом с exe, поэтому папку лучше держать в постоянном месте.
+
+## Виртуальный микрофон (VAC Lite)
+
+Нужен, если вы хотите переключать микрофон, а в Discord/Zoom устройство ввода чтобы не менялось:
+
+1. Установите **VAC Lite** (кнопкой в установщике или вручную из `VAC-Lite.zip` → `setup64.exe`)
 2. В приложении появится статус **«VAC: Line 1 (Virtual Audio Cable) · активен»**
-3. В Discord → Настройки → Голос и видео → Устройство ввода: **Line 1 (Virtual Audio Cable)**
+3. В Discord → Настройки → Голос и видео → Устройство ввода выберите **Line 1 (Virtual Audio Cable)**
 
 Схема: `физический микрофон → MicSwitcher (роутер) → VAC → Discord`
 
@@ -50,60 +55,66 @@ Discord/Zoom уже настроен виртуальный вход и пере
 
 | Действие | Что делает |
 |---|---|
-| Горячая клавиша (по умолчанию **F9**) | Переключить дефолтный микрофон |
-| ЛКМ по микрофону в списке | Выбрать его сразу |
+| Горячая клавиша (по умолчанию **F9**) | Переключить микрофон по умолчанию |
+| ЛКМ по карточке микрофона | Выбрать его сразу |
 | Колесо мыши над карточкой | Громкость микрофона (0–250%) |
 | Тумблер на карточке | Вкл/выкл участие микрофона в переключении |
-| **Правый клик** по микрофону | То же, что тумблер |
+| Правый клик по микрофону | То же, что тумблер |
 | Кнопка **«Сменить микрофон»** | То же, что горячая клавиша |
-| Крестик окна | Свернуть в трей (программа продолжает работать) |
+| Крестик окна | Свернуть в трей (программа работает) |
 | Иконка в трее → «Выход» | Завершить программу |
 
-## Горячая клавиша
+**Горячая клавиша меняется** в Настройках: нажмите на поле с клавишей и нажмите нужную
+(Esc — отмена). Поддерживаются `f10`, `ctrl+m`, `alt+f1`, `scroll lock`, `caps lock`, `pg up` и т.п.
 
-**Настройки → Горячая клавиша → поле с клавишей → нажать нужную клавишу**
-(Esc — отмена). Форматы: `f10`, `f12`, `ctrl+m`, `alt+f1`, `shift+f5`,
-`scroll lock`, `caps lock`, `num lock`, `pg up`, `home`, `insert`, `delete`,
-`print screen` и т.п.
+## Темы
 
-## Оформление и темы
+**Настройки → Оформление** — четыре темы Discord, как в клиенте:
 
-**Настройки → Оформление**:
+- **Discord Светлая**, **Discord Тёмная**, **Discord Пепел**, **Discord Чёрная**
+- **Авто — как в Discord** — при запуске приложение один раз смотрит, какая тема выбрана в
+  Discord (по окну клиента, а если оно свёрнуто — по данным клиента), и включает такую же.
+  Если тема не распознана или Discord не установлен — **Discord Тёмная**
 
-- **Авто — как в Discord** — снимает реальные цвета с окна Discord (фон + панели) и строит из них палитру. Работает с любыми темами клиента, в том числе клиентскими («Пепел» и др.) и с пользовательскими цветами. Пока окно Discord открыто, тема перепроверяется каждые 5 секунд; если окно свернули — приложение остаётся в снятых цветах
-- **Discord Dark / Discord Light / Discord Midnight** — фиксированные пресеты
+![Светлая тема](screenshot-light.png)
 
-## Файлы рядом с exe
+Ручной выбор запоминается; в авто-режиме тема больше не меняется на ходу.
+
+## Файлы рядом с приложением
 
 - `mic_switcher.json` — горячая клавиша, исключения, громкости, язык, «поверх окон»
-- `micswitcher_ui.json` — режим оформления (например, `{"theme_mode": "auto"}`)
-- `micswitcher_debug.log` — отладочный лог
+- `micswitcher_ui.json` — режим оформления
+- `micswitcher_debug.log` — отладочный лог (запуск, переключения, ошибки)
+
+Удаление конфига сбрасывает настройки к значениям по умолчанию.
 
 ## Сборка из исходников
 
-Нужен Python 3.10+ (Windows):
+Python 3.10+ (Windows):
 
 ```bash
 pip install -r requirements.txt
-python build_exe.py        # PyInstaller onedir -> dist/MicSwitcher/
+python build_exe.py        # приложение (onedir) → dist/MicSwitcher/
 ```
 
-Структура:
+Файлы проекта:
 
 - `mic_switcher.py` — аудио-логика: устройства, дефолт, роутинг VAC, горячая клавиша, конфиг
-- `mic_switcher_modern.py` — UI (CustomTkinter) и точка входа
-- `build_exe.py` — сборка портативной папки `MicSwitcher\` (иконка вшивается в код)
-- `test_poll_hotkey.py`, `test_tray.py` — регрессионные проверки хоткея и трея
+- `mic_switcher_modern.py` — интерфейс (CustomTkinter) и точка входа
+- `installer.py` — установщик (собирается PyInstaller'ом вместе с папкой приложения и VAC)
+- `build_exe.py` — сборка папки приложения
+- `test_poll_hotkey.py`, `test_tray.py` — регрессионные проверки
 
 ## История версий
 
-- **1.3.3** — починена рамка карточек: после смены темы на экране настроек оставалась тонкая линия через всю ширину (убрана лишняя прокладка под карточкой + принудительная перерисовка после сборки экранов)
-- **1.3.2** — авто-тема не перекрашивает интерфейс в мусорные цвета, если окно Discord перекрыто; чтение конфигов с BOM; чистка кода
-- **1.3.1** — убрана метка «исключён» (состояние видно по тумблеру); исправлено падение при ошибке теста VAC; пересборка UI по теме выполняется в главном потоке
-- **1.3.0** — авто-тема по фактическим цветам окна Discord (клиентские темы)
+- **1.4.0** — три варианта поставки (установщик, портативный exe, VAC Lite); четыре темы Discord (Светлая, Тёмная, Пепел, Чёрная); авто-тема определяется один раз при запуске; список устройств вывода обновляется при открытии и больше не залипает на «—»
+- **1.3.3** — починена рамка карточек в настройках (линия за скруглёнными углами)
+- **1.3.2** — устойчивость авто-темы и чтения конфигов (BOM), чистка кода
+- **1.3.1** — убрана метка «исключён», исправлено падение при ошибке теста VAC, пересборка UI в главном потоке
+- **1.3.0** — авто-тема по фактическим цветам окна Discord
 - **1.2.0** — темы Dark / Light / Midnight, авто-подхват из данных Discord
 - **1.1.x** — интерфейс в стиле Discord: селекты, тумблеры, кнопки, поля
-- **1.0.4** — исправлен хоткей (флаг из очереди не доходил до переключения)
+- **1.0.4** — исправлен хоткей
 - **1.0.3** — иконка в трее, подъём окна при повторном запуске
 
 ## Лицензия
@@ -114,80 +125,74 @@ python build_exe.py        # PyInstaller onedir -> dist/MicSwitcher/
 
 # MicSwitcher — Mic Switcher
 
-A portable app — the `MicSwitcher` folder with `MicSwitcher.exe` inside —
-that instantly switches the system default microphone with a hotkey.
-It also routes audio into a Virtual Audio Cable (VAC), so your
-Discord/Zoom virtual-mic input keeps working.
+Switches the Windows default microphone with a single hotkey and can route
+audio into a virtual microphone for Discord. Discord-style UI with four client themes.
 
-**Version:** 1.3.3 · **Platform:** Windows 10/11 · **No Python required**
+**Version 1.4.0** · Windows 10/11 · No Python required
 
-## Features
+## Downloads
 
-- ⌨️ **Hotkey switching** — one press changes the default mic
-- 🎧 **Virtual mic for Discord** — audio is routed into VAC automatically
-- 🔊 **Per-mic volume** (0–250%, mouse wheel) + one-click reset
-- ✖ **Exclude mics** from rotation (right-click or the card toggle)
-- 🎨 **Discord-style UI** — Dark / Light / Midnight palettes, blurple accent, Discord-like cards and switches
-- 🪞 **Auto theme "follow Discord"** — samples the real colors of the running Discord window, so client themes (e.g. "Ash") and custom colors are picked up as well
-- 🔔 **Tray icon** — minimizes to tray, the icon is pinned to the visible area, relaunching raises the window
-- 🚀 **Autostart** with Windows
-- 🌐 **Two languages**: Russian and English
-- 🧯 **Single instance**: relaunching never creates a second process
-- 📄 **Debug log**: `micswitcher_debug.log` next to the exe (falls back to `%TEMP%`)
+| File | Purpose |
+|---|---|
+| **`MicSwitcher-Setup-1.4.0.exe`** ⭐ | **Installer (recommended).** Installs to `%LOCALAPPDATA%\Programs\MicSwitcher`, optionally installs **VAC Lite**, creates Desktop and Start-menu shortcuts, registers an uninstaller |
+| `MicSwitcher-1.4.0.exe` | **Portable.** A single exe, no installation; settings are stored next to the file |
+| `VAC-Lite.zip` | **Virtual Audio Cable Lite** driver (Line 1) — only needed for the virtual-mic routing in Discord |
 
-## Installation
+## Install
 
-1. Download **`MicSwitcher-v1.3.3.zip`** from [Releases](https://github.com/xffliner/mic-switcher/releases) and extract it
-2. Run `MicSwitcher.exe` from the `MicSwitcher` folder. **No Python required.** Keep all files of the folder together (onedir build: the app never unpacks itself into `%TEMP%` and needs no admin rights)
-3. The first run creates `mic_switcher.json` next to the exe
+1. Run **`MicSwitcher-Setup-1.4.0.exe`**
+2. Tick what you need: install VAC Lite (admin rights, reboot may be required), create a desktop shortcut, launch after install
+3. Press **Install** — the app goes into your user profile; admin rights are needed only for the VAC driver
 
-## Virtual mic (for Discord)
+Portable alternative: run **`MicSwitcher-1.4.0.exe`** from any folder.
 
-You need the **Virtual Audio Cable** driver:
+## Virtual mic (VAC Lite)
 
-1. Install VAC ([vb-audio.com](https://vb-audio.com/Cable/))
+1. Install **VAC Lite** (`setup64.exe`)
 2. The app shows **«VAC: Line 1 (Virtual Audio Cable) · активен» / active**
 3. Discord → Settings → Voice & Video → Input Device: **Line 1 (Virtual Audio Cable)**
 
 Pipeline: `physical mic → MicSwitcher (router) → VAC → Discord`
 
-Without VAC the app simply switches the system default mic.
-
 ## Usage
 
 | Action | Effect |
 |---|---|
-| Hotkey (default **F9**) | Switch default mic |
-| LMB on a mic card | Select it immediately |
+| Hotkey (default **F9**) | Switch the default mic |
+| LMB on a mic card | Select it |
 | Mouse wheel over a card | Volume (0–250%) |
-| Card toggle | Enable/disable the mic in rotation |
-| Right-click on a mic | Same as the toggle |
-| Window close button | Hide to tray (app keeps running) |
+| Card toggle / right-click | Enable/disable the mic in rotation |
+| Window close button | Hide to tray |
 | Tray icon → Exit | Quit |
 
-## Appearance and themes
+## Themes
 
-**Settings → Appearance**: *Auto — follow Discord* (samples the real Discord window colors every 5 s), plus fixed **Discord Dark / Light / Midnight** presets.
+**Settings → Appearance**: four Discord themes — **Light**, **Dark**, **Ash**, **Black** — plus
+**Auto — follow Discord**, checked once at startup (window color, or client data if the window is
+minimized). Unknown theme or no Discord → **Discord Dark**.
 
-## Building from source
+## Files next to the app
 
-Python 3.10+ (Windows):
+`mic_switcher.json` (settings), `micswitcher_ui.json` (theme mode), `micswitcher_debug.log` (log).
+
+## Build from source
 
 ```bash
 pip install -r requirements.txt
-python build_exe.py        # PyInstaller onedir -> dist/MicSwitcher/
+python build_exe.py        # app (onedir) → dist/MicSwitcher/
 ```
 
 ## Changelog
 
-- **1.3.3** — fixed the card border artifact: after a theme switch a thin full-width line could remain on the settings screen (stray spacer removed + forced repaint after screens are rebuilt)
-- **1.3.2** — auto theme no longer applies garbage colors when the Discord window is covered; BOM-tolerant config reading; code cleanup
-- **1.3.1** — removed the "excluded" badge (state is shown by the toggle); fixed the VAC test crash on error; theme rebuild runs in the main thread
-- **1.3.0** — auto theme from real Discord window colors (client themes)
-- **1.2.0** — Dark / Light / Midnight themes with auto-detection from Discord data
-- **1.1.x** — Discord-style widgets: selects, switches, buttons, fields
-- **1.0.4** — fixed the hotkey flag never reaching the switch
-- **1.0.3** — tray icon, raising the window on relaunch
+- **1.4.0** — three download options (installer, portable exe, VAC Lite); four Discord themes (Light, Dark, Ash, Black); auto theme detected once at startup; the output-device list refreshes on open and no longer sticks at "—"
+- **1.3.3** — fixed the card border artifact in Settings
+- **1.3.2** — robustness of the auto theme and configs (BOM), cleanup
+- **1.3.1** — removed the "excluded" badge, fixed the VAC test crash, theme rebuild in the main thread
+- **1.3.0** — auto theme from the real Discord window colors
+- **1.2.0** — Dark / Light / Midnight themes with auto-detection
+- **1.1.x** — Discord-style widgets
+- **1.0.4** — hotkey fix
+- **1.0.3** — tray icon, raise window on relaunch
 
 ## License
 
