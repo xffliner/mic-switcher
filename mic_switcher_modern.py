@@ -358,7 +358,8 @@ def palette_from_colors(bg_rgb, panel_rgb):
     """Собрать полную палитру из фона чата и цвета панелей Discord."""
     dark = _luminance(bg_rgb) < 0.5
     if _color_dist(bg_rgb, panel_rgb) < 8:
-        panel_rgb = _mix(bg_rgb, (255, 255, 255) if dark else (0, 0, 0), 0.05)
+        # панели в Discord всегда чуть темнее фона (и в тёмной, и в светлой теме)
+        panel_rgb = _mix(bg_rgb, (0, 0, 0), 0.05)
     white, black = (255, 255, 255), (0, 0, 0)
     if dark:
         card = panel_rgb
@@ -472,23 +473,33 @@ def sample_discord_colors():
             gdi.DeleteDC(mdc)
             u.ReleaseDC(hwnd, hdc)
         img = Image.frombuffer("RGBA", (width, height), buf, "raw", "BGRA", 0, 1).convert("RGB")
-        small = img.resize((max(8, width // 10), max(8, height // 10)))
-        pixels = list(small.getdata())
-        counts = Counter(pixels)
-        if not counts:
-            return None
-        total = len(pixels)
-        top = counts.most_common(16)
-        bg_rgb, bg_n = top[0]
-        if bg_rgb == (0, 0, 0) and bg_n > 0.9 * total:
-            return None  # окно не отрисовалось
-        panel_rgb = None
-        for color, _cnt in top[1:]:
-            if _color_dist(color, bg_rgb) >= 10:
-                panel_rgb = color
-                break
-        if panel_rgb is None:
-            panel_rgb = _mix(bg_rgb, (0, 0, 0) if _luminance(bg_rgb) > 0.5 else (255, 255, 255), 0.05)
+
+        def dominant(x0, x1, y0, y1):
+            """Самый частый цвет в прямоугольнике (доли от размера окна)."""
+            box = (int(width * x0), int(height * y0), int(width * x1), int(height * y1))
+            crop = img.crop(box)
+            if crop.width < 4 or crop.height < 4:
+                return None
+            crop = crop.resize((max(4, crop.width // 8), max(4, crop.height // 8)))
+            px = list(crop.getdata())
+            if not px:
+                return None
+            return Counter(px).most_common(1)[0][0]
+
+        # Фон — из шапки Discord: картинка/видео в чате не собьёт определение темы.
+        bg_rgb = dominant(0.15, 0.85, 0.02, 0.07)
+        if bg_rgb is None or bg_rgb == (0, 0, 0):
+            bg_rgb = dominant(0.0, 1.0, 0.0, 1.0)
+            if bg_rgb is None or bg_rgb == (0, 0, 0):
+                return None  # окно не отрисовалось
+        dark = _luminance(bg_rgb) < 0.5
+        # Панель берём из списка каналов, но только если она действительно
+        # темнее фона (в подсвеченном канале доминирует цвет выделения).
+        panel_rgb = dominant(0.01, 0.18, 0.30, 0.90)
+        if (panel_rgb is None
+                or _color_dist(panel_rgb, bg_rgb) < 6
+                or (dark and _luminance(panel_rgb) >= _luminance(bg_rgb))):
+            panel_rgb = _mix(bg_rgb, (0, 0, 0) if dark else (255, 255, 255), 0.06)
         return _rgb_to_hex(bg_rgb), _rgb_to_hex(panel_rgb)
     except Exception as e:
         _dbg("theme: sample failed: %r" % e)
@@ -526,7 +537,7 @@ def save_ui_cfg(cfg):
 ICON_B64 = ""
 
 # Релиз
-VERSION = "1.2.2"
+VERSION = "1.3.0"
 
 # ─────────────────────────────────────────────────────────────
 # Локализация (RU / EN)
