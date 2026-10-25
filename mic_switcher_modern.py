@@ -1761,7 +1761,11 @@ class App:
         char = event.char
         if keysym in ms._TK_SPECIAL:
             main = ms._TK_SPECIAL[keysym]
-        elif char and len(char) == 1:
+        elif len(keysym) == 1 and keysym.isalnum():
+            # Ctrl+буква: Tk даёт keysym='m', а char — управляющий символ (\r и т.п.),
+            # поэтому брать надо keysym, иначе связки с Ctrl не проходят валидацию.
+            main = keysym.lower()
+        elif char and len(char) == 1 and char.isprintable():
             main = char.lower()
         else:
             return None
