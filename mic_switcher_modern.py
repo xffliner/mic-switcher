@@ -547,7 +547,7 @@ def save_ui_cfg(cfg):
 ICON_B64 = ""
 
 # Релиз
-VERSION = "1.3.2"
+VERSION = "1.3.3"
 
 # ─────────────────────────────────────────────────────────────
 # Локализация (RU / EN)
@@ -1355,6 +1355,8 @@ class App:
             self._show_screen(cur if cur in ("main", "settings") else "main")
             self.update_ui()
             self._resync_layout()
+            self._repaint_cards()
+            self.root.after(150, self._repaint_cards)
         except Exception as e:
             _dbg("theme: rebuild failed: %r" % e)
 
@@ -1623,8 +1625,7 @@ class App:
             c3, self.t("autostart_chk"), self.auto_var, self._apply_autostart)
         self.topmost_var = tk.BooleanVar(value=self._topmost)
         self._topmost_chk, self._topmost_lbl = self._switch_row(
-            c3, self.t("topmost_chk"), self.topmost_var, self._apply_topmost)
-        ctk.CTkFrame(c3, fg_color="transparent", height=4).pack(fill="x")
+            c3, self.t("topmost_chk"), self.topmost_var, self._apply_topmost, bottom=12)
 
         # ── Язык + Оформление ──
         c4 = ctk.CTkFrame(s, fg_color=CARD, corner_radius=10, border_width=1, border_color=BORDER)
@@ -1654,10 +1655,10 @@ class App:
                                                  anchor="w", justify="left")
         self._settings_theme_hint.pack(fill="x", padx=14, pady=(8, 12))
 
-    def _switch_row(self, parent, text, var, command):
+    def _switch_row(self, parent, text, var, command, bottom=10):
         """Строка настройки в стиле Discord: подпись слева, тумблер справа."""
         row = ctk.CTkFrame(parent, fg_color="transparent")
-        row.pack(fill="x", padx=14, pady=(0, 10))
+        row.pack(fill="x", padx=14, pady=(0, bottom))
         lbl = ctk.CTkLabel(row, text=text, font=F_BODY, text_color=TEXT, anchor="w")
         lbl.pack(side="left", fill="x", expand=True)
         sw = ctk.CTkSwitch(row, text="", variable=var, command=command,
@@ -1668,6 +1669,36 @@ class App:
                            border_width=0, width=44, height=24)
         sw.pack(side="right")
         return sw, lbl
+
+    def _repaint_cards(self):
+        """Перерисовать скруглённые рамки карточек.
+
+        CustomTkinter рисует рамку на canvas по текущему размеру виджета. Если
+        карточку построили (или пересобрали при смене темы), а окончательный
+        размер пришёл позже, на экране остаётся «хвост» старой границы — тонкая
+        линия через всю ширину. Повторная установка corner_radius заставляет
+        CTkFrame перерисоваться в актуальных размерах.
+        """
+        def walk(widget, depth=0):
+            if depth > 3:
+                return
+            try:
+                children = widget.winfo_children()
+            except Exception:
+                return
+            for child in children:
+                try:
+                    if isinstance(child, ctk.CTkFrame):
+                        radius = child.cget("corner_radius")
+                        if radius:
+                            child.configure(corner_radius=radius)
+                except Exception:
+                    pass
+                walk(child, depth + 1)
+
+        for parent in (getattr(self, "settings", None), getattr(self, "main", None)):
+            if parent is not None:
+                walk(parent)
 
     def _show_screen(self, name):
         """Смена экрана с плавным въездом нового (slide-in, ~190 мс).
@@ -1701,6 +1732,7 @@ class App:
                 new.pack(fill="both", expand=True)
             except Exception:
                 pass
+            self.root.after(60, self._repaint_cards)
 
         def step(i):
             try:

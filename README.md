@@ -9,7 +9,7 @@
 Работает и с виртуальным микрофоном (Virtual Audio Cable): удобно, когда в
 Discord/Zoom уже настроен виртуальный вход и перестраивать его не нужно.
 
-**Версия:** 1.3.2 · **Платформа:** Windows 10/11 · **Python не требуется**
+**Версия:** 1.3.3 · **Платформа:** Windows 10/11 · **Python не требуется**
 
 ## Возможности
 
@@ -29,7 +29,7 @@ Discord/Zoom уже настроен виртуальный вход и пере
 
 ## Установка
 
-1. Скачайте архив **`MicSwitcher-v1.3.2.zip`** со страницы [Releases](https://github.com/xffliner/mic-switcher/releases) и распакуйте его
+1. Скачайте архив **`MicSwitcher-v1.3.3.zip`** со страницы [Releases](https://github.com/xffliner/mic-switcher/releases) и распакуйте его
 2. Запустите `MicSwitcher.exe` из папки `MicSwitcher`. **Python не нужен.** Все файлы папки — единый комплект (сборка `onedir`: приложение не распаковывается в `%TEMP%` и не требует прав администратора)
 3. Первый запуск создаёт рядом с exe файл настроек `mic_switcher.json`
 
@@ -97,6 +97,7 @@ python build_exe.py        # PyInstaller onedir -> dist/MicSwitcher/
 
 ## История версий
 
+- **1.3.3** — починена рамка карточек: после смены темы на экране настроек оставалась тонкая линия через всю ширину (убрана лишняя прокладка под карточкой + принудительная перерисовка после сборки экранов)
 - **1.3.2** — авто-тема не перекрашивает интерфейс в мусорные цвета, если окно Discord перекрыто; чтение конфигов с BOM; чистка кода
 - **1.3.1** — убрана метка «исключён» (состояние видно по тумблеру); исправлено падение при ошибке теста VAC; пересборка UI по теме выполняется в главном потоке
 - **1.3.0** — авто-тема по фактическим цветам окна Discord (клиентские темы)
@@ -118,7 +119,7 @@ that instantly switches the system default microphone with a hotkey.
 It also routes audio into a Virtual Audio Cable (VAC), so your
 Discord/Zoom virtual-mic input keeps working.
 
-**Version:** 1.3.2 · **Platform:** Windows 10/11 · **No Python required**
+**Version:** 1.3.3 · **Platform:** Windows 10/11 · **No Python required**
 
 ## Features
 
@@ -136,7 +137,7 @@ Discord/Zoom virtual-mic input keeps working.
 
 ## Installation
 
-1. Download **`MicSwitcher-v1.3.2.zip`** from [Releases](https://github.com/xffliner/mic-switcher/releases) and extract it
+1. Download **`MicSwitcher-v1.3.3.zip`** from [Releases](https://github.com/xffliner/mic-switcher/releases) and extract it
 2. Run `MicSwitcher.exe` from the `MicSwitcher` folder. **No Python required.** Keep all files of the folder together (onedir build: the app never unpacks itself into `%TEMP%` and needs no admin rights)
 3. The first run creates `mic_switcher.json` next to the exe
 
@@ -179,6 +180,7 @@ python build_exe.py        # PyInstaller onedir -> dist/MicSwitcher/
 
 ## Changelog
 
+- **1.3.3** — fixed the card border artifact: after a theme switch a thin full-width line could remain on the settings screen (stray spacer removed + forced repaint after screens are rebuilt)
 - **1.3.2** — auto theme no longer applies garbage colors when the Discord window is covered; BOM-tolerant config reading; code cleanup
 - **1.3.1** — removed the "excluded" badge (state is shown by the toggle); fixed the VAC test crash on error; theme rebuild runs in the main thread
 - **1.3.0** — auto theme from real Discord window colors (client themes)
