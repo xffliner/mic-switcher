@@ -573,7 +573,7 @@ def config_path():
 def load_config():
     """Возвращает (hotkey, set(exclude), dict{mic.id: громкость 0-250})."""
     try:
-        with open(config_path(), encoding="utf-8") as f:
+        with open(config_path(), encoding="utf-8-sig") as f:
             data = json.load(f)
         hotkey = str(data.get("hotkey") or HOTKEY).lower()
         exclude = set(str(x).lower() for x in data.get("exclude", []))
@@ -592,7 +592,7 @@ def save_config(hotkey, exclude, volumes=None, topmost=None):
     # Если громкости не переданы — читаем уже сохранённые, чтобы не затереть их.
     if volumes is None:
         try:
-            with open(config_path(), encoding="utf-8") as f:
+            with open(config_path(), encoding="utf-8-sig") as f:
                 volumes = {str(k): int(v) for k, v in (json.load(f).get("volumes") or {}).items()}
         except Exception:
             volumes = {}
@@ -603,7 +603,7 @@ def save_config(hotkey, exclude, volumes=None, topmost=None):
     if topmost is None:
         # Не теряем «поверх окон», если сохранение не про него
         try:
-            with open(config_path(), encoding="utf-8") as f:
+            with open(config_path(), encoding="utf-8-sig") as f:
                 prev = json.load(f)
             if "topmost" in prev:
                 data["topmost"] = bool(prev["topmost"])
@@ -628,7 +628,7 @@ def save_config(hotkey, exclude, volumes=None, topmost=None):
 def load_topmost():
     """«Окно поверх всех»: по умолчанию включено; ключ появляется после первого сохранения."""
     try:
-        with open(config_path(), encoding="utf-8") as f:
+        with open(config_path(), encoding="utf-8-sig") as f:
             data = json.load(f)
         if "topmost" in data:
             return bool(data["topmost"])
@@ -663,7 +663,7 @@ def load_lang():
     """Возвращает сохранённый язык ("ru"/"en").
     Если в конфиге ещё нет — определяет по языку Windows и сохраняет."""
     try:
-        with open(config_path(), encoding="utf-8") as f:
+        with open(config_path(), encoding="utf-8-sig") as f:
             data = json.load(f)
         lang = data.get("lang")
         if lang in ("ru", "en"):
@@ -681,7 +681,7 @@ def save_lang(lang):
     if lang not in ("ru", "en"):
         lang = "ru"
     try:
-        with open(config_path(), encoding="utf-8") as f:
+        with open(config_path(), encoding="utf-8-sig") as f:
             data = json.load(f)
     except Exception:
         data = {}
@@ -1624,8 +1624,10 @@ class MicSwitcher:
             out_s.stop(); out_s.close()
             in_s.stop(); in_s.close()
         except Exception as e:
-            self.root.after(0, lambda: self.vac_test_label.config(
-                text="⚠️ Ошибка при проверке: " + str(e), fg="#f59e0b"))
+            # e привязываем значением по умолчанию: в Python 3 имя e удаляется
+            # при выходе из except, и отложенный лямбда-вызов падал бы с NameError.
+            self.root.after(0, lambda err=str(e): self.vac_test_label.config(
+                text="⚠️ Ошибка при проверке: " + err, fg="#f59e0b"))
             return
         arr = np.concatenate(collected) if collected else np.zeros((1, nch), "float32")
         rms = float(np.sqrt(np.mean(arr ** 2)))

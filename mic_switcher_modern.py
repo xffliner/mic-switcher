@@ -188,8 +188,6 @@ apply_palette("dark")
 # ─────────────────────────────────────────────────────────────
 # Тема Discord: чтение выбранного в клиенте оформления
 # ─────────────────────────────────────────────────────────────
-DISCORD_THEME_RE = re.compile(rb'"(midnight|darker|onyx|dark|light|system|auto)"')
-
 
 def discord_roots():
     """Папки данных установленных клиентов Discord."""
@@ -239,21 +237,6 @@ def norm_theme(value):
     return "dark"
 
 
-def discord_stamp():
-    """Отпечаток свежести настроек Discord (для слежения за сменой темы)."""
-    best = 0.0
-    for d in discord_leveldb_dirs():
-        try:
-            for name in os.listdir(d):
-                try:
-                    best = max(best, os.path.getmtime(os.path.join(d, name)))
-                except Exception:
-                    pass
-        except Exception:
-            pass
-    return best
-
-
 def _extract_discord_theme(data):
     """Достать тему из блоба настроек внешнего вида Discord.
 
@@ -277,6 +260,9 @@ def _extract_discord_theme(data):
     if m:
         return m.group(1).decode("ascii", "replace")
     return None
+
+
+_last_detected = [None]
 
 
 def detect_discord_theme():
@@ -304,7 +290,9 @@ def detect_discord_theme():
                 continue
             val = _extract_discord_theme(data)
             if val:
-                _dbg("theme: discord=%s (%s)" % (val, os.path.basename(p)))
+                if _last_detected[0] != val:
+                    _last_detected[0] = val
+                    _dbg("theme: discord=%s (%s)" % (val, os.path.basename(p)))
                 return norm_theme(val), p
             # Запасной путь: каких значений темы в файле больше
             counts["midnight"] += data.count(b'"midnight"')
@@ -454,6 +442,20 @@ def sample_discord_colors():
         height = rect.bottom - rect.top
         if width < 300 or height < 200:
             return None
+        # Если окно Discord перекрыто другим окном, PrintWindow отдаёт почти
+        # чёрный кадр, и приложение получало «тему» #000000. Проверяем, что
+        # в нескольких точках окна сверху действительно Discord.
+        GA_ROOT = 2
+        probes = ((rect.left + width // 2, rect.top + height // 2),
+                  (rect.left + width // 4, rect.top + height // 3),
+                  (rect.left + 3 * width // 4, rect.top + height // 3))
+        visible_pts = 0
+        for px, py in probes:
+            top_hwnd = u.WindowFromPoint(wt.POINT(px, py))
+            if top_hwnd and u.GetAncestor(top_hwnd, GA_ROOT) == hwnd:
+                visible_pts += 1
+        if visible_pts == 0:
+            return None  # окно полностью перекрыто — снимок недостоверен
         hdc = u.GetWindowDC(hwnd)
         mdc = gdi.CreateCompatibleDC(hdc)
         bmp = gdi.CreateCompatibleBitmap(hdc, width, height)
@@ -486,20 +488,26 @@ def sample_discord_colors():
                 return None
             return Counter(px).most_common(1)[0][0]
 
-        # Фон — из шапки Discord: картинка/видео в чате не собьёт определение темы.
-        bg_rgb = dominant(0.15, 0.85, 0.02, 0.07)
-        if bg_rgb is None or bg_rgb == (0, 0, 0):
-            bg_rgb = dominant(0.0, 1.0, 0.0, 1.0)
-            if bg_rgb is None or bg_rgb == (0, 0, 0):
-                return None  # окно не отрисовалось
-        dark = _luminance(bg_rgb) < 0.5
-        # Панель берём из списка каналов, но только если она действительно
-        # темнее фона (в подсвеченном канале доминирует цвет выделения).
-        panel_rgb = dominant(0.01, 0.18, 0.30, 0.90)
-        if (panel_rgb is None
-                or _color_dist(panel_rgb, bg_rgb) < 6
-                or (dark and _luminance(panel_rgb) >= _luminance(bg_rgb))):
-            panel_rgb = _mix(bg_rgb, (0, 0, 0) if dark else (255, 255, 255), 0.06)
+        # Основа — самый частый цвет всего окна (это фон чата Discord).
+        bg_rgb = dominant(0.0, 1.0, 0.0, 1.0)
+        if bg_rgb is None:
+            return None
+        # Уточнение по шапке, но только если она не «чёрная» и близка к фону:
+        # так картинка или видео в чате не подменяют цвет темы.
+        head_rgb = dominant(0.15, 0.85, 0.02, 0.07)
+        if (head_rgb is not None and max(head_rgb) > 12
+                and _color_dist(head_rgb, bg_rgb) <= 24):
+            bg_rgb = head_rgb
+        # Панель — заметно более тёмный частый цвет (в тёмной теме), иначе −6%.
+        crop = img.resize((max(8, width // 10), max(8, height // 10)))
+        panel_rgb = None
+        for color, _cnt in Counter(list(crop.getdata())).most_common(16):
+            if (_color_dist(color, bg_rgb) >= 8
+                    and _luminance(color) < _luminance(bg_rgb) - 0.004):
+                panel_rgb = color
+                break
+        if panel_rgb is None:
+            panel_rgb = _mix(bg_rgb, (0, 0, 0), 0.06)
         return _rgb_to_hex(bg_rgb), _rgb_to_hex(panel_rgb)
     except Exception as e:
         _dbg("theme: sample failed: %r" % e)
@@ -516,7 +524,9 @@ def ui_cfg_path():
 
 def load_ui_cfg():
     try:
-        with open(ui_cfg_path(), encoding="utf-8") as f:
+        # utf-8-sig: конфиг могут сохранить с BOM (Блокнот/PowerShell) —
+        # json.load на BOM падает, и режим темы молча сбрасывался в «Авто».
+        with open(ui_cfg_path(), encoding="utf-8-sig") as f:
             data = json.load(f)
         return data if isinstance(data, dict) else {}
     except Exception:
@@ -537,7 +547,7 @@ def save_ui_cfg(cfg):
 ICON_B64 = ""
 
 # Релиз
-VERSION = "1.3.0"
+VERSION = "1.3.2"
 
 # ─────────────────────────────────────────────────────────────
 # Локализация (RU / EN)
@@ -1137,6 +1147,7 @@ class App:
         self._hk_capturing = False
         self._cap_old_listener = None
         self._hotkey_q = queue.Queue()
+        self._theme_reload = threading.Event()
         self._lvl = 0.0
         self.router = None
         self.monitor = None
@@ -1370,18 +1381,28 @@ class App:
     def _watch_discord_theme(self):
         """Фон: сменили тему в Discord — подстраиваемся (только режим «Авто»)."""
         last = self._theme_signature()
+        pending = None
         while True:
-            time.sleep(4)
+            time.sleep(5)
             try:
                 sig = self._theme_signature()
                 if sig is None or sig == last:
+                    pending = None
                     continue
-                # Окно Discord свернули/закрыли: не сбрасываем уже снятые цвета
+                # Окно Discord свернули/закрыли/перекрыли: оставляем снятые цвета
                 if sig[0] == "file" and getattr(self, "_theme_source", "") == "discord-window":
                     last = sig
+                    pending = None
                     continue
+                # Снимок с окна применяем, только если он повторился дважды:
+                # одиночный «мусорный» кадр (перекрытие, анимация) не перекрасит UI.
+                if sig[0] == "win":
+                    if pending is None or pending != sig:
+                        pending = sig
+                        continue
+                pending = None
                 last = sig
-                self.root.after(0, self._apply_detected_theme)
+                self._theme_reload.set()
             except Exception as e:
                 _dbg("theme watch: %r" % e)
 
@@ -1876,10 +1897,11 @@ class App:
 
             row_bg = ACCENT_SOFT if is_active else CARD
             if excluded:
-                name_fg, name_font, tag, tag_fg, tag_bg = TEXT_3, F_CAP, self.t("mic_excluded"), DANGER, SURFACE_2
+                # Исключённый микрофон просто приглушён: без отдельной метки,
+                # состояние видно по выключенному тумблеру.
+                name_fg, name_font = TEXT_3, F_CAP
             else:
                 name_fg, name_font = TEXT, (F_BODY_B if is_active else F_BODY)
-                tag, tag_fg, tag_bg = "", TEXT_3, SURFACE_2
 
             card = ctk.CTkFrame(self.mic_list, fg_color=row_bg, corner_radius=8,
                                 border_width=1,
@@ -1933,10 +1955,6 @@ class App:
                             pass
 
                     _breathe(0)
-            elif tag:
-                pill = ctk.CTkFrame(top, fg_color=tag_bg, corner_radius=999)
-                pill.pack(side="left", padx=(8, 0))
-                ctk.CTkLabel(pill, text=tag, font=F_MICRO, text_color=tag_fg).pack(padx=8, pady=3)
             # громкость (0–250%)
             vol_row = ctk.CTkFrame(card, fg_color="transparent")
             vol_row.pack(fill="x", padx=14, pady=(4, 8))
@@ -2470,6 +2488,14 @@ class App:
                     self.quit_app()
         except queue.Empty:
             pass
+        except Exception:
+            pass
+        # Фоновая нить только поднимает флаг, а UI пересобираем здесь,
+        # в главном потоке Tk (после() из чужой нити — источник зависаний).
+        try:
+            if self._theme_reload.is_set():
+                self._theme_reload.clear()
+                self._apply_detected_theme()
         except Exception:
             pass
         try:
