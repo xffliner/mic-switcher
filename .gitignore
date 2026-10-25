@@ -17,6 +17,10 @@ mic_switcher_modern_app.py
 
 # Локальное состояние приложения (создаётся рядом с exe)
 mic_switcher.json
+mic_switcher.json.tmp
+micswitcher_ui.json
+micswitcher_debug.log
+mic_switcher_err.log
 
 # ОС / редакторы
 .DS_Store
