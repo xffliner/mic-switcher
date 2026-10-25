@@ -7,6 +7,7 @@
 новый UI-класс App и main() с single-instance mutex.
 """
 import ctypes
+import json
 import math
 import os
 import queue
@@ -46,28 +47,279 @@ def _dbg(msg):
             pass
 
 # ─────────────────────────────────────────────────────────────
-# Дизайн-токены (та же палитра «аудио-консоль», что в mic_switcher.py)
+# Оформление: темы в стиле Discord.
+# Палитры повторяют фирменные цвета клиента Discord (Dark / Light /
+# Midnight) и подхватываются из установленного Discord автоматически.
 # ─────────────────────────────────────────────────────────────
-BG          = ms.BG           # фон приложения
-CARD        = ms.CARD         # карточки
-SURFACE_2   = ms.SURFACE_2    # hover-поверхность
-BORDER      = ms.BORDER       # границы / разделители
-TEXT        = ms.TEXT         # основной текст
-DIM         = ms.DIM          # вторичный текст
-TEXT_3      = ms.TEXT_3       # приглушённый
-BTN         = ms.BTN          # акцент
-BTN_HOVER   = ms.BTN_HOVER
-ACTIVE      = ms.ACTIVE       # успех / активен
-ACCENT_SOFT = ms.ACCENT_SOFT  # выделенный элемент
-DANGER      = ms.DANGER
-WARNING     = ms.WARNING
-FONT        = ms.FONT
+THEMES = {
+    # Discord Dark — «классическая» тёмная тема клиента
+    "dark": {
+        "bg": "#313338",           # фон переписки
+        "card": "#2B2D31",         # карточки / панели
+        "surface2": "#35373C",     # hover-поверхность
+        "card_hover": "#35373C",
+        "border": "#1E1F22",       # разделители
+        "text": "#F2F3F5",
+        "dim": "#B5BAC1",
+        "text3": "#949BA4",
+        "btn": "#5865F2",          # blurple
+        "btn_hover": "#4752C4",
+        "active": "#23A55A",       # «онлайн»-зелёный
+        "accent_soft": "#3C4076",  # выделенная карточка (blurple-тон)
+        "danger": "#DA373C",
+        "danger_hover": "#A12828",
+        "warning": "#F0B232",
+        "keycap_bg": "#1E1F22",
+        "keycap_border": "#3F4147",
+        "btn2": "#4E5058",         # вторичная кнопка Discord
+        "btn2_hover": "#6D6F78",
+        "btn2_text": "#FFFFFF",
+        "track": "#4E5058",        # дорожка слайдера
+        "input": "#1E1F22",        # выпадающие списки
+        "on_accent": "#FFFFFF",
+    },
+    # Discord Light
+    "light": {
+        "bg": "#FFFFFF",
+        "card": "#F2F3F5",
+        "surface2": "#E9EAED",
+        "card_hover": "#E9EAED",
+        "border": "#E3E5E8",
+        "text": "#060607",
+        "dim": "#4E5058",
+        "text3": "#80848E",
+        "btn": "#5865F2",
+        "btn_hover": "#4752C4",
+        "active": "#248046",
+        "accent_soft": "#E7E8FD",
+        "danger": "#D83C3E",
+        "danger_hover": "#B03234",
+        "warning": "#C27C0E",
+        "keycap_bg": "#E3E5E8",
+        "keycap_border": "#D4D7DC",
+        "btn2": "#E3E5E8",
+        "btn2_hover": "#D4D7DC",
+        "btn2_text": "#060607",
+        "track": "#D4D7DC",
+        "input": "#FFFFFF",
+        "on_accent": "#FFFFFF",
+    },
+    # Discord Midnight — почти чёрная тема
+    "midnight": {
+        "bg": "#000000",
+        "card": "#0E0F11",
+        "surface2": "#1A1B1E",
+        "card_hover": "#1A1B1E",
+        "border": "#232529",
+        "text": "#F2F3F5",
+        "dim": "#B5BAC1",
+        "text3": "#949BA4",
+        "btn": "#5865F2",
+        "btn_hover": "#4752C4",
+        "active": "#23A55A",
+        "accent_soft": "#26273D",
+        "danger": "#DA373C",
+        "danger_hover": "#A12828",
+        "warning": "#F0B232",
+        "keycap_bg": "#1A1B1E",
+        "keycap_border": "#2B2D31",
+        "btn2": "#2B2D31",
+        "btn2_hover": "#3F4147",
+        "btn2_text": "#FFFFFF",
+        "track": "#2B2D31",
+        "input": "#1A1B1E",
+        "on_accent": "#FFFFFF",
+    },
+}
+THEME_ORDER = ("dark", "light", "midnight")
+
+# Текущие цвета (перезаписываются apply_palette при смене темы)
+BG = CARD = SURFACE_2 = CARD_HOVER = BORDER = TEXT = DIM = TEXT_3 = "#000000"
+BTN = BTN_HOVER = ACTIVE = ACCENT_SOFT = DANGER = DANGER_HOVER = WARNING = "#000000"
+KEYCAP_BG = KEYCAP_BORDER = BTN2 = BTN2_HOVER = BTN2_TEXT = TRACK = INPUT_BG = "#000000"
+ON_ACCENT = "#FFFFFF"
+FONT = ms.FONT
+
+
+def apply_palette(name):
+    """Применить палитру темы (глобальные цветовые токены UI)."""
+    global BG, CARD, SURFACE_2, CARD_HOVER, BORDER, TEXT, DIM, TEXT_3
+    global BTN, BTN_HOVER, ACTIVE, ACCENT_SOFT, DANGER, DANGER_HOVER, WARNING
+    global KEYCAP_BG, KEYCAP_BORDER, BTN2, BTN2_HOVER, BTN2_TEXT, TRACK, INPUT_BG, ON_ACCENT
+    pal = THEMES.get(name) or THEMES["dark"]
+    BG = pal["bg"]
+    CARD = pal["card"]
+    SURFACE_2 = pal["surface2"]
+    CARD_HOVER = pal["card_hover"]
+    BORDER = pal["border"]
+    TEXT = pal["text"]
+    DIM = pal["dim"]
+    TEXT_3 = pal["text3"]
+    BTN = pal["btn"]
+    BTN_HOVER = pal["btn_hover"]
+    ACTIVE = pal["active"]
+    ACCENT_SOFT = pal["accent_soft"]
+    DANGER = pal["danger"]
+    DANGER_HOVER = pal["danger_hover"]
+    WARNING = pal["warning"]
+    KEYCAP_BG = pal["keycap_bg"]
+    KEYCAP_BORDER = pal["keycap_border"]
+    BTN2 = pal["btn2"]
+    BTN2_HOVER = pal["btn2_hover"]
+    BTN2_TEXT = pal["btn2_text"]
+    TRACK = pal["track"]
+    INPUT_BG = pal["input"]
+    ON_ACCENT = pal["on_accent"]
+    return pal
+
+
+apply_palette("dark")
+
+
+# ─────────────────────────────────────────────────────────────
+# Тема Discord: чтение выбранного в клиенте оформления
+# ─────────────────────────────────────────────────────────────
+DISCORD_THEME_RE = re.compile(rb'"(midnight|darker|onyx|dark|light|system|auto)"')
+
+
+def discord_roots():
+    """Папки данных установленных клиентов Discord."""
+    appdata = os.environ.get("APPDATA") or ""
+    if not appdata:
+        return []
+    out = []
+    seen = set()
+    for name in ("discord", "Discord", "discordptb", "DiscordPTB",
+                 "discordcanary", "DiscordCanary"):
+        p = os.path.join(appdata, name)
+        key = os.path.normcase(p)
+        if key in seen or not os.path.isdir(p):
+            continue
+        seen.add(key)
+        out.append(p)
+    return out
+
+
+def discord_leveldb_dirs():
+    """Каталоги localStorage клиента Discord (там лежит настройка темы)."""
+    return [os.path.join(r, "Local Storage", "leveldb") for r in discord_roots()
+            if os.path.isdir(os.path.join(r, "Local Storage", "leveldb"))]
+
+
+def _windows_is_light():
+    try:
+        import winreg
+        with winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as k:
+            v, _ = winreg.QueryValueEx(k, "AppsUseLightTheme")
+            return bool(v)
+    except Exception:
+        return False
+
+
+def norm_theme(value):
+    """Название темы Discord -> ключ палитры приложения."""
+    v = (value or "").lower()
+    if v in ("midnight", "darker", "onyx"):
+        return "midnight"
+    if v == "light":
+        return "light"
+    if v in ("system", "auto"):
+        return "light" if _windows_is_light() else "dark"
+    return "dark"
+
+
+def discord_stamp():
+    """Отпечаток свежести настроек Discord (для слежения за сменой темы)."""
+    best = 0.0
+    for d in discord_leveldb_dirs():
+        try:
+            for name in os.listdir(d):
+                try:
+                    best = max(best, os.path.getmtime(os.path.join(d, name)))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    return best
+
+
+def detect_discord_theme():
+    """Тема, выбранная в Discord: (ключ палитры, путь к файлу) или (None, None)."""
+    for d in discord_leveldb_dirs():
+        try:
+            names = [n for n in os.listdir(d) if n.endswith((".ldb", ".log"))]
+        except Exception:
+            continue
+        files = []
+        for n in names:
+            p = os.path.join(d, n)
+            try:
+                files.append((os.path.getmtime(p), p))
+            except Exception:
+                pass
+        files.sort(reverse=True)
+        counts = {"midnight": 0, "dark": 0, "light": 0}
+        for _, p in files[:8]:
+            try:
+                with open(p, "rb") as f:
+                    data = f.read(8 * 1024 * 1024)
+            except Exception:
+                continue
+            # Блок настроек внешнего вида: ключ "appearance" и рядом значения темы
+            idx = data.find(b"appearance")
+            if idx >= 0:
+                m = DISCORD_THEME_RE.search(data[idx:idx + 4000])
+                if m:
+                    val = m.group(1).decode("ascii", "replace")
+                    _dbg("theme: discord=%s (%s)" % (val, os.path.basename(p)))
+                    return norm_theme(val), p
+            # Запасной путь: какие значения темы встречаются в файле
+            counts["midnight"] += data.count(b'"midnight"')
+            counts["dark"] += data.count(b'"dark"')
+            counts["light"] += data.count(b'"light"')
+        if counts["midnight"]:
+            return "midnight", None
+        if counts["dark"] > counts["light"]:
+            return "dark", None
+        if counts["light"]:
+            return "light", None
+    return None, None
+
+
+# Настройки оформления приложения (отдельный файл, чтобы не менять конфиг логики)
+def ui_cfg_path():
+    try:
+        return os.path.join(os.path.dirname(ms.config_path()), "micswitcher_ui.json")
+    except Exception:
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "micswitcher_ui.json")
+
+
+def load_ui_cfg():
+    try:
+        with open(ui_cfg_path(), encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def save_ui_cfg(cfg):
+    try:
+        p = ui_cfg_path()
+        tmp = p + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, p)
+    except Exception as e:
+        _dbg("ui cfg save failed: %r" % e)
 
 # Иконка (base64). Заполняется автоматически при сборке exe.
 ICON_B64 = ""
 
 # Релиз
-VERSION = "1.0.4"
+VERSION = "1.1.0"
 
 # ─────────────────────────────────────────────────────────────
 # Локализация (RU / EN)
@@ -76,12 +328,12 @@ STRINGS = {
     "ru": {
         "app_title":          "Переключатель микрофонов",
         "footer":             "Переключатель микрофонов  •  v{ver}",
-        "hotkey_badge":       "Клавиша: {hk}",
+        "hotkey_badge":       "⌨  {hk}",
         "section_mics":       "Микрофоны",
         "reset_vol":          "↺ Сброс громкости",
         "switch_btn":         "Сменить микрофон  ({hk})",
         "btn_settings":       "Настройки",
-        "btn_quit":           "Завершить сеанс программы",
+        "btn_quit":           "Выход",
         "hint_main":          "ЛКМ — выбрать   •   колесо — громкость (0–250%)   •   тумблер — вкл/выкл микрофона",
         "vac_title":          "Виртуальный микрофон",
         "vac_not_found":      "не найден",
@@ -112,7 +364,7 @@ STRINGS = {
         "mic_excluded":       "исключён",
         "vol_label":          "Громкость",
         "tray_show":          "Показать окно",
-        "tray_quit":          "Завершить сеанс программы",
+        "tray_quit":          "Выход",
         "tray_tooltip":       "Переключатель микрофонов",
         "err_title":          "Ошибка",
         "err_hotkey_input":   "Не удалось начать ввод: {e}",
@@ -140,11 +392,22 @@ STRINGS = {
         "mics_empty_hint":    "Проверьте подключение микрофона и разрешения Windows (Конфиденциальность → Микрофон).",
         "btn_refresh":        "↻ Обновить список",
         "topmost_chk":        "Окно поверх остальных окон",
+        "sec_theme":          "Оформление",
+        "theme_auto":         "Авто — как в Discord",
+        "theme_dark":         "Discord Dark",
+        "theme_light":        "Discord Light",
+        "theme_midnight":     "Discord Midnight",
+        "theme_src_discord":  "Тема взята из Discord: {name}",
+        "theme_src_manual":   "Тема выбрана вручную",
+        "theme_src_none":     "Discord не найден — тёмная тема Dark",
+        "theme_name_dark":    "Dark",
+        "theme_name_light":   "Light",
+        "theme_name_midnight":"Midnight",
     },
     "en": {
         "app_title":          "Mic Switcher",
         "footer":             "Mic Switcher  •  v{ver}",
-        "hotkey_badge":       "Key: {hk}",
+        "hotkey_badge":       "⌨  {hk}",
         "section_mics":       "Microphones",
         "reset_vol":          "↺ Reset volume",
         "switch_btn":         "Switch mic  ({hk})",
@@ -208,6 +471,17 @@ STRINGS = {
         "mics_empty_hint":    "Check the mic connection and Windows permissions (Privacy → Microphone).",
         "btn_refresh":        "↻ Refresh list",
         "topmost_chk":        "Window always on top",
+        "sec_theme":          "Appearance",
+        "theme_auto":         "Auto — follow Discord",
+        "theme_dark":         "Discord Dark",
+        "theme_light":        "Discord Light",
+        "theme_midnight":     "Discord Midnight",
+        "theme_src_discord":  "Theme from Discord: {name}",
+        "theme_src_manual":   "Theme chosen manually",
+        "theme_src_none":     "Discord not found — Dark theme",
+        "theme_name_dark":    "Dark",
+        "theme_name_light":   "Light",
+        "theme_name_midnight":"Midnight",
     },
 }
 
@@ -556,8 +830,14 @@ class App:
         # ── Язык ──
         self.lang = ms.load_lang()  # "ru" или "en"
 
+        # ── Оформление: тема в стиле Discord ──
+        # theme_mode: "auto" (как в Discord) или конкретная тема
+        self._ui_cfg = load_ui_cfg()
+        self._theme_mode = self._ui_cfg.get("theme_mode") or "auto"
+        self._apply_theme_mode(rebuild=False)
+
         # ── Окно ──
-        ctk.set_appearance_mode("dark")
+        ctk.set_appearance_mode("light" if self.theme == "light" else "dark")
         self.root = ctk.CTk()
         self.root.title(self.t("app_title"))
         self.root.configure(fg_color=BG)
@@ -614,9 +894,13 @@ class App:
         # после первой отрисовки окна — проверить, нужен ли скроллбар,
         # и подогнать высоты под фактическое число микрофонов
         self.root.after(250, self._initial_fit)
+        self.root.after(120, self._apply_window_frame)
 
         self._start_tray()
         self.root.after(100, self._poll_hotkey)
+        # Слежение за темой Discord (если выбрано «Авто — как в Discord»)
+        threading.Thread(target=self._watch_discord_theme, daemon=True,
+                         name="MicSwitcherTheme").start()
 
     def t(self, key, **kw):
         """Вернуть строку локализованного текста для текущего языка."""
@@ -628,6 +912,138 @@ class App:
             except Exception:
                 pass
         return s
+
+    # ═══════════════════════════ ТЕМА (Discord) ═══════════════════════════
+    def _resolve_theme(self):
+        """Какая тема нужна сейчас: (ключ палитры, источник)."""
+        mode = getattr(self, "_theme_mode", "auto")
+        if mode in THEMES:
+            return mode, "manual"
+        detected, _src = detect_discord_theme()
+        if detected:
+            return detected, "discord"
+        return "dark", "none"
+
+    def _apply_theme_mode(self, rebuild=True):
+        """Пересчитать тему из режима и (при rebuild) перерисовать интерфейс."""
+        name, source = self._resolve_theme()
+        self.theme = name
+        self._theme_source = source
+        pal = apply_palette(name)
+        if rebuild:
+            try:
+                ctk.set_appearance_mode("light" if name == "light" else "dark")
+            except Exception:
+                pass
+            try:
+                self.root.configure(fg_color=BG)
+            except Exception:
+                pass
+            self._rebuild_screens()
+            self.root.after(60, self._apply_window_frame)
+        return pal
+
+    def theme_label(self, mode):
+        return self.t("theme_auto") if mode == "auto" else self.t("theme_" + mode)
+
+    def theme_menu_values(self):
+        return [self.theme_label(m) for m in ("auto",) + THEME_ORDER]
+
+    def theme_source_text(self):
+        if self._theme_source == "discord":
+            return self.t("theme_src_discord", name=self.t("theme_name_" + self.theme))
+        if self._theme_source == "manual":
+            return self.t("theme_src_manual")
+        return self.t("theme_src_none")
+
+    def _on_theme_choice(self, label):
+        mode = None
+        for m in ("auto",) + THEME_ORDER:
+            if self.theme_label(m) == label:
+                mode = m
+                break
+        if mode is None or mode == self._theme_mode:
+            return
+        self._theme_mode = mode
+        cfg = load_ui_cfg()
+        cfg["theme_mode"] = mode
+        save_ui_cfg(cfg)
+        _dbg("theme: mode=%s" % mode)
+        self._apply_theme_mode(rebuild=True)
+
+    def _apply_window_frame(self):
+        """Подкрасить заголовок/рамку окна под текущую тему (DWM, Windows 11)."""
+        try:
+            hwnd = int(self.root.wm_frame(), 16)
+            if not hwnd:
+                return
+            dwm = ctypes.windll.dwmapi
+
+            def _cint(attr, value):
+                v = ctypes.c_int(int(value))
+                dwm.DwmSetWindowAttribute(hwnd, attr, ctypes.byref(v), ctypes.sizeof(v))
+
+            def _colorref(hex_color):
+                try:
+                    h = hex_color.lstrip("#")
+                    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+                except Exception:
+                    return 0
+                return r | (g << 8) | (b << 16)
+
+            _cint(20, 1 if self.theme != "light" else 0)  # immersive dark mode
+            _cint(35, _colorref(BG))                      # цвет заголовка = фон
+            _cint(34, _colorref(BORDER))                  # цвет рамки
+            _cint(36, _colorref(TEXT))                    # цвет текста заголовка
+        except Exception:
+            pass
+
+    def _rebuild_screens(self):
+        """Пересоздать оба экрана с новыми цветами (логика и состояние не меняются)."""
+        cur = getattr(self, "screen", "main")
+        for attr in ("main", "settings"):
+            w = getattr(self, attr, None)
+            if w is not None:
+                try:
+                    w.destroy()
+                except Exception:
+                    pass
+        self.mic_rows = []
+        try:
+            self._build_main()
+            self._build_settings()
+            self._show_screen(cur if cur in ("main", "settings") else "main")
+            self.update_ui()
+            self._resync_layout()
+        except Exception as e:
+            _dbg("theme: rebuild failed: %r" % e)
+
+    def _apply_detected_theme(self):
+        try:
+            if self._theme_mode != "auto":
+                return
+            self._apply_theme_mode(rebuild=True)
+            _dbg("theme: switched to %s (from Discord)" % self.theme)
+        except Exception as e:
+            _dbg("theme: apply detected failed: %r" % e)
+
+    def _watch_discord_theme(self):
+        """Фон: сменили тему в Discord — подстраиваемся (только режим «Авто»)."""
+        last = discord_stamp()
+        while True:
+            time.sleep(5)
+            try:
+                if self._theme_mode != "auto":
+                    continue
+                st = discord_stamp()
+                if not st or st == last:
+                    continue
+                last = st
+                detected, _src = detect_discord_theme()
+                if detected and detected != self.theme:
+                    self.root.after(0, self._apply_detected_theme)
+            except Exception as e:
+                _dbg("theme watch: %r" % e)
 
     def _initial_fit(self):
         self._resync_layout()
@@ -647,11 +1063,12 @@ class App:
         self._title_lbl = ctk.CTkLabel(row1, text=self.t("app_title"), font=F_TITLE,
                      text_color=TEXT, anchor="w")
         self._title_lbl.pack(side="left")
-        self.hk_pill = ctk.CTkFrame(row1, fg_color=SURFACE_2, corner_radius=999)
+        self.hk_pill = ctk.CTkFrame(row1, fg_color=KEYCAP_BG, corner_radius=6,
+                                    border_width=1, border_color=KEYCAP_BORDER)
         self.hk_pill.pack(side="right")
         self.hk_badge_lbl = ctk.CTkLabel(self.hk_pill, text=self.t("hotkey_badge", hk=self.display_hotkey()),
                                          font=F_CAP_B, text_color=DIM)
-        self.hk_badge_lbl.pack(padx=10, pady=5)
+        self.hk_badge_lbl.pack(padx=10, pady=4)
 
         row2 = ctk.CTkFrame(hdr, fg_color="transparent")
         row2.pack(fill="x", pady=(8, 0))
@@ -659,8 +1076,8 @@ class App:
         self.hdr_dot.pack(side="left")
         self.hdr_sub = ctk.CTkLabel(row2, text="", font=F_CAP, text_color=DIM, anchor="w")
         self.hdr_sub.pack(side="left", padx=(8, 0))
-        self.vu = ctk.CTkProgressBar(row2, width=110, height=8, corner_radius=4,
-                                     fg_color=BORDER, progress_color=ACTIVE)
+        self.vu = ctk.CTkProgressBar(row2, width=104, height=6, corner_radius=3,
+                                     fg_color=TRACK, progress_color=ACTIVE)
         self._vu_prev = 0.0
         def vu_set(v):
             # Перерисовываем только при реальном изменении уровня:
@@ -675,18 +1092,19 @@ class App:
         # ── Секция «Микрофоны» ──
         sec = ctk.CTkFrame(self.main, fg_color="transparent")
         sec.pack(fill="x", padx=20, pady=(12, 4))
-        self._sec_mics_lbl = ctk.CTkLabel(sec, text=self.t("section_mics"), font=F_H2, text_color=TEXT, anchor="w")
+        self._sec_mics_lbl = ctk.CTkLabel(sec, text=self.t("section_mics").upper(),
+                                          font=F_CAP_B, text_color=TEXT_3, anchor="w")
         self._sec_mics_lbl.pack(side="left")
         self._reset_vol_btn = ctk.CTkButton(sec, text=self.t("reset_vol"), command=self.reset_volumes,
-                      fg_color=SURFACE_2, hover_color=BTN, text_color=DIM,
-                      corner_radius=999, height=28, font=F_CAP_B)
+                      fg_color="transparent", hover_color=SURFACE_2, text_color=TEXT_3,
+                      corner_radius=6, height=24, font=F_CAP_B)
         self._reset_vol_btn.pack(side="right")
 
         # Список микрофонов (скролл-область фиксированной высоты —
         # размер окна одинаков для обоих экранов)
         self.mic_list = ctk.CTkScrollableFrame(self.main, fg_color="transparent",
-                                               height=308, scrollbar_fg_color=BORDER,
-                                               scrollbar_button_color=SURFACE_2,
+                                               height=308, scrollbar_fg_color="transparent",
+                                               scrollbar_button_color=TRACK,
                                                scrollbar_button_hover_color=BTN)
         self.mic_list.pack(fill="x", padx=20)
 
@@ -697,23 +1115,21 @@ class App:
         self.switch_btn = ctk.CTkButton(self.main,
                                         text=self.t("switch_btn", hk=self.display_hotkey()),
                                         command=self.toggle,
-                                        fg_color=BTN, hover_color=BTN_HOVER, text_color="white",
-                                        font=F_BTN, height=46, corner_radius=12)
+                                        fg_color=BTN, hover_color=BTN_HOVER, text_color=ON_ACCENT,
+                                        font=F_BTN, height=44, corner_radius=8)
         self.switch_btn.pack(fill="x", padx=20, pady=(10, 10))
 
         # ── Вторичные действия (симметрично, равной шириной) ──
         row = ctk.CTkFrame(self.main, fg_color="transparent")
         row.pack(fill="x", padx=20, pady=(0, 8))
         self._btn_settings = ctk.CTkButton(row, text=self.t("btn_settings"), command=self.open_settings,
-                      fg_color=CARD, hover_color=SURFACE_2, text_color=TEXT,
-                      corner_radius=999, height=36, font=F_CAP_B,
-                      border_width=1, border_color=BORDER)
+                      fg_color=BTN2, hover_color=BTN2_HOVER, text_color=BTN2_TEXT,
+                      corner_radius=8, height=34, font=F_CAP_B)
         self._btn_settings.pack(side="left", fill="x",
                                                                 expand=True, padx=(0, 4))
         self._btn_quit = ctk.CTkButton(row, text=self.t("btn_quit"), command=self.quit_app,
-                      fg_color=CARD, hover_color="#3a2030", text_color=DANGER,
-                      corner_radius=999, height=36, font=F_CAP_B,
-                      border_width=1, border_color=BORDER)
+                      fg_color="transparent", hover_color=SURFACE_2, text_color=DANGER,
+                      corner_radius=8, height=34, font=F_CAP_B)
         self._btn_quit.pack(side="left", fill="x",
                                                                 expand=True, padx=(4, 0))
 
@@ -727,33 +1143,33 @@ class App:
         self._footer_lbl.pack(pady=(0, 12))
 
     def _build_vac_card(self):
-        card = ctk.CTkFrame(self.main, fg_color=CARD, corner_radius=14,
+        card = ctk.CTkFrame(self.main, fg_color=CARD, corner_radius=8,
                             border_width=1, border_color=BORDER)
         card.pack(fill="x", padx=20, pady=(8, 8))
         top = ctk.CTkFrame(card, fg_color="transparent")
-        top.pack(fill="x", padx=14, pady=(8, 0))
-        self._vac_title_lbl = ctk.CTkLabel(top, text=self.t("vac_title"), font=F_H2, text_color=TEXT,
+        top.pack(fill="x", padx=14, pady=(10, 0))
+        self._vac_title_lbl = ctk.CTkLabel(top, text=self.t("vac_title"), font=F_BODY_B, text_color=TEXT,
                      anchor="w")
         self._vac_title_lbl.pack(side="left")
         self.vac_status_pill = ctk.CTkFrame(top, fg_color=SURFACE_2, corner_radius=999)
         self.vac_status_pill.pack(side="right")
-        self.vac_status_lbl = ctk.CTkLabel(self.vac_status_pill, text="…", font=F_CAP_B,
+        self.vac_status_lbl = ctk.CTkLabel(self.vac_status_pill, text="…", font=F_MICRO,
                                            text_color=DIM)
-        self.vac_status_lbl.pack(padx=10, pady=4)
+        self.vac_status_lbl.pack(padx=8, pady=3)
         self._vac_name_lbl = ctk.CTkLabel(card, text=(self.vac_name or self.t("vac_not_found")), font=F_CAP, text_color=DIM,
                      anchor="w")
         self._vac_name_lbl.pack(fill="x", padx=14, pady=(2, 6))
         links = ctk.CTkFrame(card, fg_color="transparent")
-        links.pack(fill="x", padx=14, pady=(0, 10))
+        links.pack(fill="x", padx=14, pady=(0, 12))
         self._vac_discord_btn = ctk.CTkButton(links, text=self.t("vac_discord"),
                       command=self.open_discord_voice_settings,
-                      fg_color=SURFACE_2, hover_color=BTN, text_color=TEXT,
-                      corner_radius=999, height=30, font=F_CAP_B)
+                      fg_color=BTN2, hover_color=BTN2_HOVER, text_color=BTN2_TEXT,
+                      corner_radius=8, height=30, font=F_CAP_B)
         self._vac_discord_btn.pack(side="left")
         self._vac_windows_btn = ctk.CTkButton(links, text=self.t("vac_windows"),
                       command=self.open_windows_sound_settings,
-                      fg_color=SURFACE_2, hover_color=BTN, text_color=TEXT,
-                      corner_radius=999, height=30, font=F_CAP_B)
+                      fg_color=BTN2, hover_color=BTN2_HOVER, text_color=BTN2_TEXT,
+                      corner_radius=8, height=30, font=F_CAP_B)
         self._vac_windows_btn.pack(side="left", padx=(8, 0))
 
     # ═══════════════════════════ ЭКРАН: НАСТРОЙКИ ═══════════════════════════
@@ -771,13 +1187,13 @@ class App:
         self._settings_title = ctk.CTkLabel(hdr, text=self.t("btn_settings"), font=F_TITLE, text_color=TEXT, anchor="w")
         self._settings_title.pack(side="left")
         self._btn_back = ctk.CTkButton(hdr, text=self.t("btn_back"), command=self.close_settings,
-                      fg_color=SURFACE_2, hover_color=BTN, text_color=TEXT,
-                      corner_radius=999, height=32, font=F_CAP_B)
+                      fg_color=BTN2, hover_color=BTN2_HOVER, text_color=BTN2_TEXT,
+                      corner_radius=8, height=30, font=F_CAP_B)
         self._btn_back.pack(side="right")
 
         # ── Виртуальный микрофон ──
-        c1 = ctk.CTkFrame(s, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
-        c1.pack(fill="x", padx=20, pady=(12, 10), expand=True)
+        c1 = ctk.CTkFrame(s, fg_color=CARD, corner_radius=10, border_width=1, border_color=BORDER)
+        c1.pack(fill="x", padx=20, pady=(12, 10))
         self._settings_vac_title = ctk.CTkLabel(c1, text=self.t("vac_title"), font=F_H2, text_color=TEXT,
                      anchor="w")
         self._settings_vac_title.pack(fill="x", padx=14, pady=(12, 4))
@@ -785,8 +1201,8 @@ class App:
                                            anchor="w", justify="left")
         self.vac_status_row.pack(fill="x", padx=14)
         self._settings_test_btn = ctk.CTkButton(c1, text=self.t("vac_test_btn"), command=self.test_virtual_mic,
-                      fg_color=BTN, hover_color=BTN_HOVER, text_color="white",
-                      corner_radius=10, height=36, font=F_BODY_B)
+                      fg_color=BTN, hover_color=BTN_HOVER, text_color=ON_ACCENT,
+                      corner_radius=8, height=36, font=F_BODY_B)
         self._settings_test_btn.pack(fill="x", padx=14, pady=(8, 4))
         self.vac_test_lbl = ctk.CTkLabel(c1, text="", font=F_CAP, text_color=DIM,
                                          anchor="w", justify="left", height=1)
@@ -805,28 +1221,36 @@ class App:
         self._settings_mon_out_lbl = ctk.CTkLabel(dev_row, text=self.t("vac_mon_out"), font=F_CAP, text_color=DIM)
         self._settings_mon_out_lbl.pack(side="left")
         self.mon_out_menu = ctk.CTkOptionMenu(dev_row, values=[], command=lambda v: None,
-                                              fg_color=SURFACE_2, button_color=BORDER,
-                                              button_hover_color=BTN, text_color=TEXT,
-                                              font=F_CAP, height=32, corner_radius=8)
+                                              fg_color=INPUT_BG, button_color=BTN,
+                                              button_hover_color=BTN_HOVER, text_color=TEXT,
+                                              font=F_CAP, height=32, corner_radius=8,
+                                              dropdown_fg_color=INPUT_BG,
+                                              dropdown_hover_color=SURFACE_2,
+                                              dropdown_text_color=TEXT)
         self.mon_out_menu.pack(side="left", fill="x", expand=True, padx=(8, 0))
+        try:
+            self.mon_out_menu.set("—")
+        except Exception:
+            pass
         self.mon_btn = ctk.CTkButton(c1, text=self.t("vac_mon_start"), command=self.toggle_monitor,
-                                     fg_color=BTN, hover_color=BTN_HOVER, text_color="white",
-                                     corner_radius=10, height=36, font=F_BODY_B)
+                                     fg_color=BTN, hover_color=BTN_HOVER, text_color=ON_ACCENT,
+                                     corner_radius=8, height=36, font=F_BODY_B)
         self.mon_btn.pack(fill="x", padx=14, pady=(10, 4))
         self.mon_lbl = ctk.CTkLabel(c1, text="", font=F_CAP, text_color=DIM,
                                     anchor="w", justify="left", height=1)
         self.mon_lbl.pack(fill="x", padx=14, pady=(0, 12))
 
         # ── Горячая клавиша ──
-        c2 = ctk.CTkFrame(s, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
-        c2.pack(fill="x", padx=20, pady=(0, 10), expand=True)
+        c2 = ctk.CTkFrame(s, fg_color=CARD, corner_radius=10, border_width=1, border_color=BORDER)
+        c2.pack(fill="x", padx=20, pady=(0, 10))
         self._settings_hk_title = ctk.CTkLabel(c2, text=self.t("sec_hotkey"), font=F_H2, text_color=TEXT,
                      anchor="w")
         self._settings_hk_title.pack(fill="x", padx=14, pady=(12, 4))
         self.hk_field = ctk.CTkButton(c2, text=self.display_hotkey(),
                                       command=self._begin_hotkey_capture,
-                                      fg_color=SURFACE_2, hover_color=ACCENT_SOFT,
-                                      text_color=TEXT, corner_radius=10, height=40,
+                                      fg_color=KEYCAP_BG, hover_color=SURFACE_2,
+                                      text_color=TEXT, corner_radius=8, height=40,
+                                      border_width=1, border_color=KEYCAP_BORDER,
                                       font=F_BODY_B)
         self.hk_field.pack(fill="x", padx=14)
         self._settings_hk_hint = ctk.CTkLabel(c2, text=self.t("hk_hint"),
@@ -834,8 +1258,8 @@ class App:
         self._settings_hk_hint.pack(fill="x", padx=14, pady=(8, 12))
 
         # ── Автозапуск ──
-        c3 = ctk.CTkFrame(s, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
-        c3.pack(fill="x", padx=20, pady=(0, 10), expand=True)
+        c3 = ctk.CTkFrame(s, fg_color=CARD, corner_radius=10, border_width=1, border_color=BORDER)
+        c3.pack(fill="x", padx=20, pady=(0, 10))
         self._settings_autostart_title = ctk.CTkLabel(c3, text=self.t("sec_autostart"), font=F_H2, text_color=TEXT,
                      anchor="w")
         self._settings_autostart_title.pack(fill="x", padx=14, pady=(12, 4))
@@ -843,30 +1267,54 @@ class App:
         self._autostart_chk = ctk.CTkCheckBox(c3, text=self.t("autostart_chk"), variable=self.auto_var,
                         command=self._apply_autostart,
                         fg_color=ACTIVE, hover_color=ACTIVE, text_color=TEXT, font=F_BODY,
-                        checkbox_width=18, checkbox_height=18, corner_radius=5,
-                        border_width=1, border_color=BORDER)
+                        checkbox_width=18, checkbox_height=18, corner_radius=4,
+                        border_width=1, border_color=TRACK)
         self._autostart_chk.pack(fill="x", padx=14, pady=(0, 8))
         self.topmost_var = tk.BooleanVar(value=self._topmost)
         self._topmost_chk = ctk.CTkCheckBox(c3, text=self.t("topmost_chk"), variable=self.topmost_var,
                         command=self._apply_topmost,
                         fg_color=ACTIVE, hover_color=ACTIVE, text_color=TEXT, font=F_BODY,
-                        checkbox_width=18, checkbox_height=18, corner_radius=5,
-                        border_width=1, border_color=BORDER)
+                        checkbox_width=18, checkbox_height=18, corner_radius=4,
+                        border_width=1, border_color=TRACK)
         self._topmost_chk.pack(fill="x", padx=14, pady=(0, 12))
 
-        # ── Язык ──
-        c4 = ctk.CTkFrame(s, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
-        c4.pack(fill="x", padx=20, pady=(0, 10), expand=True)
+        # ── Язык + Оформление ──
+        c4 = ctk.CTkFrame(s, fg_color=CARD, corner_radius=10, border_width=1, border_color=BORDER)
+        c4.pack(fill="x", padx=20, pady=(0, 10))
         self._settings_lang_title = ctk.CTkLabel(c4, text=self.t("sec_lang"), font=F_H2, text_color=TEXT,
                      anchor="w")
         self._settings_lang_title.pack(fill="x", padx=14, pady=(12, 4))
         self.lang_menu = ctk.CTkOptionMenu(c4, values=["Русский", "English"],
                                            command=self._on_lang_change,
-                                           fg_color=SURFACE_2, button_color=BORDER,
-                                           button_hover_color=BTN, text_color=TEXT,
-                                           font=F_BODY, height=36, corner_radius=8)
+                                           fg_color=INPUT_BG, button_color=BTN,
+                                           button_hover_color=BTN_HOVER, text_color=TEXT,
+                                           font=F_BODY, height=36, corner_radius=8,
+                                           dropdown_fg_color=INPUT_BG,
+                                           dropdown_hover_color=SURFACE_2,
+                                           dropdown_text_color=TEXT)
         self.lang_menu.set("Русский" if self.lang == "ru" else "English")
-        self.lang_menu.pack(fill="x", padx=14, pady=(0, 12))
+        self.lang_menu.pack(fill="x", padx=14, pady=(0, 10))
+
+        ctk.CTkFrame(c4, fg_color=BORDER, height=1).pack(fill="x", padx=14, pady=2)
+
+        # Оформление: фирменные темы Discord
+        self._settings_theme_title = ctk.CTkLabel(c4, text=self.t("sec_theme"), font=F_H2,
+                                                  text_color=TEXT, anchor="w")
+        self._settings_theme_title.pack(fill="x", padx=14, pady=(10, 4))
+        self.theme_menu = ctk.CTkOptionMenu(c4, values=self.theme_menu_values(),
+                                            command=self._on_theme_choice,
+                                            fg_color=INPUT_BG, button_color=BTN,
+                                            button_hover_color=BTN_HOVER, text_color=TEXT,
+                                            font=F_BODY, height=36, corner_radius=8,
+                                            dropdown_fg_color=INPUT_BG,
+                                            dropdown_hover_color=SURFACE_2,
+                                            dropdown_text_color=TEXT)
+        self.theme_menu.set(self.theme_label(self._theme_mode))
+        self.theme_menu.pack(fill="x", padx=14)
+        self._settings_theme_hint = ctk.CTkLabel(c4, text=self.theme_source_text(),
+                                                 font=F_MICRO, text_color=TEXT_3,
+                                                 anchor="w", justify="left")
+        self._settings_theme_hint.pack(fill="x", padx=14, pady=(8, 12))
 
     def _show_screen(self, name):
         """Смена экрана с плавным въездом нового (slide-in, ~190 мс).
@@ -960,7 +1408,7 @@ class App:
         if self.monitor is not None:
             try:
                 self.mon_btn.configure(text=self.t("vac_mon_stop"), fg_color=DANGER,
-                                       hover_color="#d95560")
+                                       hover_color=DANGER_HOVER)
             except Exception:
                 pass
         else:
@@ -994,7 +1442,7 @@ class App:
             # Главный экран
             self._title_lbl.configure(text=self.t("app_title"))
             self.hk_badge_lbl.configure(text=self.t("hotkey_badge", hk=self.display_hotkey()))
-            self._sec_mics_lbl.configure(text=self.t("section_mics"))
+            self._sec_mics_lbl.configure(text=self.t("section_mics").upper())
             self._reset_vol_btn.configure(text=self.t("reset_vol"))
             self.switch_btn.configure(text=self.t("switch_btn", hk=self.display_hotkey()))
             self._btn_settings.configure(text=self.t("btn_settings"))
@@ -1021,6 +1469,14 @@ class App:
             self._settings_autostart_title.configure(text=self.t("sec_autostart"))
             self._autostart_chk.configure(text=self.t("autostart_chk"))
             self._settings_lang_title.configure(text=self.t("sec_lang"))
+            # Оформление (темы Discord)
+            try:
+                self._settings_theme_title.configure(text=self.t("sec_theme"))
+                self.theme_menu.configure(values=self.theme_menu_values())
+                self.theme_menu.set(self.theme_label(self._theme_mode))
+                self._settings_theme_hint.configure(text=self.theme_source_text())
+            except Exception:
+                pass
             # Статус-строка в заголовке
             self._update_header_status()
             self._update_vac_card()
@@ -1065,7 +1521,7 @@ class App:
                          text_color=DIM, anchor="w", justify="left",
                          wraplength=400).pack(anchor="w", pady=(0, 6))
             ctk.CTkButton(self.mic_list, text=self.t("btn_refresh"), command=self._refresh_now,
-                          fg_color=SURFACE_2, hover_color=BTN, text_color=TEXT,
+                          fg_color=BTN2, hover_color=BTN2_HOVER, text_color=BTN2_TEXT,
                           corner_radius=999, height=30, font=F_CAP_B).pack(anchor="w", pady=(0, 4))
             self._resync_layout()
             return
@@ -1092,13 +1548,13 @@ class App:
                 name_fg, name_font = TEXT, (F_BODY_B if is_active else F_BODY)
                 tag, tag_fg, tag_bg = "", TEXT_3, SURFACE_2
 
-            card = ctk.CTkFrame(self.mic_list, fg_color=row_bg, corner_radius=14,
-                                border_width=0 if is_active else 1,
-                                border_color=BORDER)
+            card = ctk.CTkFrame(self.mic_list, fg_color=row_bg, corner_radius=8,
+                                border_width=1,
+                                border_color=BTN if is_active else BORDER)
             card.pack(fill="x", pady=3)
 
             top = ctk.CTkFrame(card, fg_color="transparent")
-            top.pack(fill="x", padx=14, pady=(8, 0))
+            top.pack(fill="x", padx=14, pady=(9, 0))
             # Тумблер пакуем ПЕРВЫМ: он сразу бронирует место справа,
             # поэтому его не «съедает» длинное имя + пиллы (раньше на
             # активной карточке тумблер сжимался до нуля и исчезал).
@@ -1108,14 +1564,14 @@ class App:
             cb = ctk.CTkSwitch(top, text="", variable=cb_var,
                                command=lambda m=mic: self.toggle_exclude(m),
                                progress_color=ACTIVE,
-                               fg_color=BORDER,
-                               button_color=TEXT, button_hover_color=TEXT,
+                               fg_color=TRACK,
+                               button_color="#FFFFFF", button_hover_color="#FFFFFF",
                                switch_width=36, switch_height=20, corner_radius=999,
                                width=36, height=20)
             cb.pack(side="right", padx=(10, 0))
 
-            accent = ctk.CTkFrame(top, width=3, height=22, corner_radius=2,
-                                  fg_color=ACTIVE if is_active else (BORDER if not excluded else SURFACE_2))
+            accent = ctk.CTkFrame(top, width=3, height=20, corner_radius=2,
+                                  fg_color=BTN if is_active else (BORDER if not excluded else SURFACE_2))
             accent.pack(side="left", fill="y", padx=(0, 10))
             name_lbl = ctk.CTkLabel(top, text=mic.FriendlyName, font=name_font,
                                     text_color=name_fg, anchor="w")
@@ -1157,8 +1613,8 @@ class App:
             val = int(stored) if stored is not None else (100 if vol is None else int(round(vol * 100)))
             slider = ctk.CTkSlider(vol_row, from_=0, to=250, number_of_steps=250,
                                    command=lambda v, m=mic: self._on_volume_change(m, v),
-                                   progress_color=BTN, button_color=TEXT,
-                                   button_hover_color=BTN, fg_color=BORDER, height=14)
+                                   progress_color=BTN, button_color="#FFFFFF",
+                                   button_hover_color=BTN, fg_color=TRACK, height=14)
             slider.pack(side="left", fill="x", expand=True)
             try:
                 slider.set(val)
@@ -1180,7 +1636,7 @@ class App:
             if not is_active and not excluded:
                 def _hov(e, c=card):
                     try:
-                        c.configure(fg_color=SURFACE_2)
+                        c.configure(fg_color=CARD_HOVER)
                     except Exception:
                         pass
 
@@ -1228,12 +1684,13 @@ class App:
             pass
 
     def _fit_window(self, screen_name=None):
-        """Высота окна = максимум из высот основного и настроек.
-        Оба экрана всегда одного размера — окно не «прыгает» при переключении."""
+        """Высота окна = высоте текущего экрана.
+        Главный экран компактный, настроек — выше (в них больше карточек)."""
         try:
             self.root.update_idletasks()
-            h = max(int(self.main.winfo_reqheight()),
-                    int(self.settings.winfo_reqheight()))
+            name = screen_name or getattr(self, "screen", "main")
+            target = self.main if name == "main" else self.settings
+            h = int(target.winfo_reqheight())
             if h <= 100:
                 return
             h = max(560, min(960, h))
@@ -1742,7 +2199,7 @@ class App:
         self._log("begin capture")
         try:
             self.hk_field.configure(text=self.t("hk_press"),
-                                    fg_color=ACTIVE, hover_color=ACTIVE, text_color="#05231a")
+                                    fg_color=ACTIVE, hover_color=ACTIVE, text_color=ON_ACCENT)
         except Exception:
             pass
         # Временно остановить глобальный слушатель, чтобы старая клавиша
@@ -1850,7 +2307,7 @@ class App:
     def _set_cap_text(self, t):
         try:
             self.hk_field.configure(text=t, fg_color=ACTIVE, hover_color=ACTIVE,
-                                    text_color="#05231a")
+                                    text_color=ON_ACCENT)
         except Exception:
             pass
 
@@ -2120,6 +2577,8 @@ class App:
             self.root.lift()
         except Exception:
             pass
+        # DWM иногда сбрасывает цвета рамки после deiconify — обновляем
+        self.root.after(40, self._apply_window_frame)
 
     def _start_tray(self):
         try:
@@ -2427,7 +2886,7 @@ class App:
             return
         self.monitor = m
         try:
-            self.mon_btn.configure(text=self.t("vac_mon_stop"), fg_color=DANGER, hover_color="#d95560")
+            self.mon_btn.configure(text=self.t("vac_mon_stop"), fg_color=DANGER, hover_color=DANGER_HOVER)
         except Exception:
             pass
         self._mon_set(self.t("mon_listening", name=out["name"]), ACTIVE)
