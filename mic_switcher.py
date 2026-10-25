@@ -588,7 +588,7 @@ def load_config():
         return HOTKEY, set(), {}
 
 
-def save_config(hotkey, exclude, volumes=None):
+def save_config(hotkey, exclude, volumes=None, topmost=None):
     # Если громкости не переданы — читаем уже сохранённые, чтобы не затереть их.
     if volumes is None:
         try:
@@ -598,13 +598,43 @@ def save_config(hotkey, exclude, volumes=None):
             volumes = {}
     # Сохраняем язык, если он уже задан
     lang = load_lang()
+    data = {"hotkey": hotkey, "exclude": sorted(exclude),
+            "volumes": volumes, "lang": lang}
+    if topmost is None:
+        # Не теряем «поверх окон», если сохранение не про него
+        try:
+            with open(config_path(), encoding="utf-8") as f:
+                prev = json.load(f)
+            if "topmost" in prev:
+                data["topmost"] = bool(prev["topmost"])
+        except Exception:
+            pass
+    else:
+        data["topmost"] = bool(topmost)
+    # Атомарная запись: tmp + os.replace — конфиг не остаётся полупустым при сбое.
     try:
-        with open(config_path(), "w", encoding="utf-8") as f:
-            json.dump({"hotkey": hotkey, "exclude": sorted(exclude),
-                       "volumes": volumes, "lang": lang},
-                      f, ensure_ascii=False, indent=2)
+        tmp = config_path() + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, config_path())
+    except Exception:
+        try:
+            with open(config_path(), "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+
+def load_topmost():
+    """«Окно поверх всех»: по умолчанию включено; ключ появляется после первого сохранения."""
+    try:
+        with open(config_path(), encoding="utf-8") as f:
+            data = json.load(f)
+        if "topmost" in data:
+            return bool(data["topmost"])
     except Exception:
         pass
+    return True
 
 
 def _detect_system_lang():
@@ -1985,7 +2015,9 @@ class Hotkey:
         if hasattr(pkb.Key, p):
             return getattr(pkb.Key, p)
         if len(p) == 1:
-            return p
+            # pynput передаёт в on_press KeyCode, а не str: KeyCode(char='m') != 'm',
+            # поэтому строковый ключ делал буквенные/цифровые хоткеи мёртвыми.
+            return pkb.KeyCode(char=p)
         raise ValueError(f"Не поддерживается в горячей клавише: {p}")
 
     def __init__(self, spec, callback):
@@ -2003,6 +2035,7 @@ class Hotkey:
         self.key = key
         self.pressed = set()
         self.callback = callback
+        self._last_fire = 0.0  # антиавтоповтор: удержание клавиши не спамит свитчи
 
     def on_press(self, key):
         m = self._norm_mod(key)
@@ -2010,7 +2043,10 @@ class Hotkey:
             self.pressed.add(m)
             return
         if key == self.key and self.pressed == self.mods:
-            self.callback()
+            now = time.time()
+            if now - self._last_fire >= 0.5:  # гасим автоповтор ОС при удержании
+                self._last_fire = now
+                self.callback()
 
     def on_release(self, key):
         m = self._norm_mod(key)

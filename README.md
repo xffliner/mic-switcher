@@ -22,7 +22,7 @@ Cable) — удобно, когда в Discord/Zoom уже настроен ви
 
 ## Установка
 
-1. Скачайте **`MicSwitcher.exe`** со страницы [Releases](https://github.com/xffliner/mic-switcher/releases) (актуальная версия — **v1.0.1**)
+1. Скачайте **`MicSwitcher.exe`** со страницы [Releases](https://github.com/xffliner/mic-switcher/releases) (актуальная версия — **v1.0.2**)
 2. Положите файл, например, на рабочий стол — и запустите. **Python не нужен**
 
 Программа не устанавливается в систему: весь конфиг лежит в файле
@@ -74,7 +74,8 @@ Cable) — удобно, когда в Discord/Zoom уже настроен ви
   "hotkey": "scroll_lock",
   "exclude": ["<GUID исключённых миков>"],
   "volumes": {"<GUID>": 100},
-  "lang": "ru"
+  "lang": "ru",
+  "topmost": true
 }
 ```
 
@@ -128,7 +129,7 @@ your Discord/Zoom virtual-mic input keeps working.
 
 ## Installation
 
-1. Download **`MicSwitcher.exe`** from [Releases](https://github.com/xffliner/mic-switcher/releases) (current: **v1.0.1**)
+1. Download **`MicSwitcher.exe`** from [Releases](https://github.com/xffliner/mic-switcher/releases) (current: **v1.0.2**)
 2. Put it on your desktop — and run it. **No Python required**
 
 All settings are stored in `mic_switcher.json` next to the exe.

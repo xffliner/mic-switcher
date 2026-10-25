@@ -56,7 +56,7 @@ FONT        = ms.FONT
 ICON_B64 = ""
 
 # Релиз
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 # ─────────────────────────────────────────────────────────────
 # Локализация (RU / EN)
@@ -120,6 +120,15 @@ STRINGS = {
         "mon_start_fail":     "Не удалось начать прослушку: {e}",
         "mon_listening":      "Слушайте: вирт. микрофон → «{name}»",
         "mon_stopped":        "Прослушка остановлена",
+        "undo":               "Отменить",
+        "vac_start_fail":     "не удалось запустить",
+        "vac_err_mic_gone":   "микрофон не найден (возможно, отключён)",
+        "vac_err_open":       "не удалось открыть микрофон",
+        "toast_vol_reset":    "🎚 Громкость сброшена: все микрофоны 100%",
+        "toast_switch_fail":  "⚠️ Не удалось переключить микрофон: {e}",
+        "mics_empty_hint":    "Проверьте подключение микрофона и разрешения Windows (Конфиденциальность → Микрофон).",
+        "btn_refresh":        "↻ Обновить список",
+        "topmost_chk":        "Окно поверх остальных окон",
     },
     "en": {
         "app_title":          "Mic Switcher",
@@ -179,6 +188,15 @@ STRINGS = {
         "mon_start_fail":     "Failed to start monitoring: {e}",
         "mon_listening":      "Listening: virtual mic → «{name}»",
         "mon_stopped":        "Monitoring stopped",
+        "undo":               "Undo",
+        "vac_start_fail":     "could not start",
+        "vac_err_mic_gone":   "microphone not found (possibly disconnected)",
+        "vac_err_open":       "could not open the microphone",
+        "toast_vol_reset":    "🎚 Volume reset: all mics at 100%",
+        "toast_switch_fail":  "⚠️ Failed to switch mic: {e}",
+        "mics_empty_hint":    "Check the mic connection and Windows permissions (Privacy → Microphone).",
+        "btn_refresh":        "↻ Refresh list",
+        "topmost_chk":        "Window always on top",
     },
 }
 
@@ -341,7 +359,15 @@ def _round_window(widget, radius):
         pass
 
 
+# Кэш кадров «дыхания»: генерация 28 кадров 160×160 дорогая, а набор
+# уровней от цвета/размера фиксирован — генерируем один раз на (color,size,levels).
+_GLOW_CACHE = {}
+
+
 def _glow_dot(color, size=20, levels=28):
+    key = (color, size, levels)
+    if key in _GLOW_CACHE:
+        return _GLOW_CACHE[key]
     """Свечение: попиксельный гаусс (привычный вид) + радиальная маска (чистый круглый край).
 
     Ядро — компактный яркий центр, гало — мягкое свечение вокруг.
@@ -404,6 +430,7 @@ def _glow_dot(color, size=20, levels=28):
                     px[x, y] = (r, g2, b2, a)
             img = img.resize((size, size), Image.LANCZOS)
             out.append(ctk.CTkImage(light_image=img, dark_image=img, size=(size, size)))
+        _GLOW_CACHE[key] = out
         return out
     except Exception:
         return None
@@ -498,7 +525,8 @@ class App:
         self.root.configure(fg_color=BG)
         self.root.geometry("500x748")
         self.root.minsize(470, 680)
-        self.root.attributes("-topmost", True)
+        self._topmost = ms.load_topmost()
+        self.root.attributes("-topmost", self._topmost)
         # Крестик в заголовке прячет окно в трей, а не закрывает программу.
         self.root.protocol("WM_DELETE_WINDOW", self.hide_window)
         icon = get_icon_path()
@@ -597,15 +625,12 @@ class App:
                                      fg_color=BORDER, progress_color=ACTIVE)
         self._vu_prev = 0.0
         def vu_set(v):
+            # Перерисовываем только при реальном изменении уровня:
+            # принудительный _draw() каждый тик — пустой CPU и зависимость
+            # от приватного API CTkProgressBar.
             if abs(float(v) - self._vu_prev) > 0.01:
                 self._vu_prev = float(v)
                 self.vu.set(self._vu_prev)
-            else:
-                # Если значение не изменилось — принудительно обновляем отрисовку
-                try:
-                    self.vu._draw()
-                except Exception:
-                    pass
         self.vu_set = vu_set
         self.vu.pack(side="right")
 
@@ -782,7 +807,14 @@ class App:
                         fg_color=ACTIVE, hover_color=ACTIVE, text_color=TEXT, font=F_BODY,
                         checkbox_width=18, checkbox_height=18, corner_radius=5,
                         border_width=1, border_color=BORDER)
-        self._autostart_chk.pack(fill="x", padx=14, pady=(0, 12))
+        self._autostart_chk.pack(fill="x", padx=14, pady=(0, 8))
+        self.topmost_var = tk.BooleanVar(value=self._topmost)
+        self._topmost_chk = ctk.CTkCheckBox(c3, text=self.t("topmost_chk"), variable=self.topmost_var,
+                        command=self._apply_topmost,
+                        fg_color=ACTIVE, hover_color=ACTIVE, text_color=TEXT, font=F_BODY,
+                        checkbox_width=18, checkbox_height=18, corner_radius=5,
+                        border_width=1, border_color=BORDER)
+        self._topmost_chk.pack(fill="x", padx=14, pady=(0, 12))
 
         # ── Язык ──
         c4 = ctk.CTkFrame(s, fg_color=CARD, corner_radius=14, border_width=1, border_color=BORDER)
@@ -969,6 +1001,14 @@ class App:
         self._start_tray()
 
     # ═══════════════════════════ СПИСОК МИКРОФОНОВ ═══════════════════════════
+    def _refresh_now(self):
+        """Ручное перечитывание списка устройств (кнопка в пустом состоянии)."""
+        try:
+            self.refresh()
+        except Exception as e:
+            _dbg("_refresh_now: %r" % e)
+        self._animated_update(flash=False)
+
     def _build_mic_rows(self):
         """Карточки микрофонов: активный — сверху, исключённые — вниз.
 
@@ -981,8 +1021,15 @@ class App:
         mics = [m for m in self.mics
                 if "virtual audio cable" not in (m.FriendlyName or "").lower()]
         if not mics:
-            ctk.CTkLabel(self.mic_list, text=self.t("mics_empty"), font=F_CAP,
-                         text_color=DIM, anchor="w").pack(anchor="w", pady=8)
+            ctk.CTkLabel(self.mic_list, text=self.t("mics_empty"), font=F_BODY_B,
+                         text_color=TEXT, anchor="w").pack(anchor="w", pady=(8, 2))
+            ctk.CTkLabel(self.mic_list, text=self.t("mics_empty_hint"), font=F_MICRO,
+                         text_color=DIM, anchor="w", justify="left",
+                         wraplength=400).pack(anchor="w", pady=(0, 6))
+            ctk.CTkButton(self.mic_list, text=self.t("btn_refresh"), command=self._refresh_now,
+                          fg_color=SURFACE_2, hover_color=BTN, text_color=TEXT,
+                          corner_radius=999, height=30, font=F_CAP_B).pack(anchor="w", pady=(0, 4))
+            self._resync_layout()
             return
 
         def _rank(mic):
@@ -1153,6 +1200,11 @@ class App:
                 return
             h = max(560, min(960, h))
             self.root.minsize(470, min(680, h))
+            # Ручной resize пользователя не должен сбрасываться при каждом свитче:
+            # geometry() дёргаем только когда требуемая высота реально изменилась.
+            if getattr(self, "_last_win_h", 0) and abs(h - self._last_win_h) <= 2:
+                return
+            self._last_win_h = h
             self.root.geometry("500x%d" % h)
         except Exception:
             pass
@@ -1224,10 +1276,12 @@ class App:
                 pass
         ms.save_config(self.hotkey, self.exclude, self.mic_vol)
         self._animated_update(flash=False)
-        self.show_notification("🎚 Громкость сброшена: все микрофоны 100%")
+        self.show_notification(self.t("toast_vol_reset"))
 
     def _flash_active(self):
         """Мягкий пульс рамки: плавное в-и-вы (2 фазы, ~240 мс)."""
+        if self.current is None:
+            return
         card = None
         for r in self.mic_rows:
             if r["mic"].id == self.current.id:
@@ -1436,9 +1490,25 @@ class App:
             raise
         _dbg("set_default: ok")
 
+    def _vac_err_text(self, err):
+        """Русские сообщения ядра → локализованные строки (иначе в EN-тостах кириллица)."""
+        s = str(err or "").strip()
+        if not s:
+            return ""
+        low = s.lower()
+        if "не найден" in low:
+            return self.t("vac_err_mic_gone")
+        if "не удалось открыть" in low:
+            return self.t("vac_err_open")
+        return s
+
     def _switch_to(self, mic):
         _dbg("_switch_to: enter -> %r" % mic.FriendlyName)
         prev = self.current
+        # set_default() работает по self.index — синхронизируем индекс с целью,
+        # иначе «Отменить» вернёт роутер на prev, а дефолтом Windows останется новый mic.
+        if mic in self.active:
+            self.index = self.active.index(mic)
         self.set_default()
         self.current = mic
         vac_ok = True
@@ -1459,16 +1529,16 @@ class App:
                     self.router = r
                 else:
                     vac_ok = False
-                    vac_err = r.last_error or "не удалось запустить"
+                    vac_err = self._vac_err_text(r.last_error) or self.t("vac_start_fail")
             except Exception as e:
                 vac_ok = False
-                vac_err = str(e)
+                vac_err = self._vac_err_text(e)
         self._animated_update(flash=True)
         name = self._clean_mic_name(mic.FriendlyName)
         if self.router is not None and vac_ok:
             act = None
             if prev is not None and prev.id != mic.id and not self.is_excluded(prev):
-                act = ("Отменить" if self.lang == "ru" else "Undo", lambda pv=prev: self._switch_to(pv))
+                act = (self.t("undo"), lambda pv=prev: self._switch_to(pv))
             self.show_notification("🎤 " + name + "  →  " + self.t("vac_title"), action=act)
         elif self.router is not None and not vac_ok:
             self.show_notification("🎤 " + name + "   ⚠️ VAC: " + (vac_err or "?"))
@@ -1540,14 +1610,21 @@ class App:
         # Цикл опроса должен жить вечно: любая ошибка ловится, и повторный
         # after() ставится безусловно (иначе VU-метр и трей «замораживаются»).
         try:
+            fired = False
             while True:
                 self._hotkey_q.get_nowait()
+                fired = True  # автоповтор при удержании: не больше одного свитча за тик
+            if fired:
                 _dbg("poll: hotkey flag -> toggle()")
                 self.toggle()
         except queue.Empty:
             pass
         except Exception as e:
             _dbg("poll: hotkey loop error: %r" % e)
+            try:
+                self.show_notification(self.t("toast_switch_fail", e=str(e)))
+            except Exception:
+                pass
         try:
             while True:
                 cmd = self._tray_q.get_nowait()
@@ -1916,6 +1993,10 @@ class App:
                 self.listener.stop()
             except Exception:
                 pass
+        try:
+            self.stop_monitor()  # сквозное прослушивание VAC тоже должно гаснуть при выходе
+        except Exception:
+            pass
         if self.router is not None:
             try:
                 self.router.stop()
@@ -1927,6 +2008,10 @@ class App:
             pass
 
     def hide_window(self):
+        # Закрытие окна крестиком во время захвата клавиши: иначе глобальный
+        # слушатель останется остановленным и хоткей «умрёт» до возврата в настройки.
+        if self._hk_capturing:
+            self._end_hotkey_capture(restart_old=True)
         self.hidden = True
         if self.tray_icon is not None:
             self.root.withdraw()
@@ -1996,6 +2081,13 @@ class App:
                 txt, fg, bg = self.t("vac_unavailable"), DANGER, SURFACE_2
             self.vac_status_lbl.configure(text=txt, text_color=fg)
             self.vac_status_pill.configure(fg_color=bg)
+            # Без VAC кнопки «Проверить» и «Прослушать» заведомо бесполезны — гасим.
+            if self.cable_idx is None and self.monitor is None:
+                self._settings_test_btn.configure(state="disabled")
+                self.mon_btn.configure(state="disabled")
+            else:
+                self._settings_test_btn.configure(state="normal")
+                self.mon_btn.configure(state="normal")
         except Exception:
             pass
 
@@ -2184,7 +2276,19 @@ class App:
             pass
         self._mon_set(self.t("mon_stopped"), DIM)
 
-    # ---------- автозапуск ----------
+    # ---------- окно поверх / автозапуск ----------
+    def _apply_topmost(self):
+        on = bool(self.topmost_var.get())
+        self._topmost = on
+        try:
+            self.root.attributes("-topmost", on)
+        except Exception:
+            pass
+        try:
+            ms.save_config(self.hotkey, self.exclude, self.mic_vol, topmost=on)
+        except Exception:
+            pass
+
     def _apply_autostart(self):
         on = bool(self.auto_var.get())
         ms.set_autostart(on)
@@ -2203,7 +2307,9 @@ def main():
     # Защита от запуска второго экземпляра (иначе горячая клавиша сработает дважды)
     _dbg("main: start (pid=%s)" % os.getpid())
     _mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\MicSwitcher_SingleInstance")
-    _gle = ctypes.windll.kernel32.GetLastError()
+    # NULL (мьютекс не создан) — продолжаем запуск; старое значение gle не читаем,
+    # иначе свежий экземпляр мог бы ложно решит, что «уже запущен».
+    _gle = ctypes.windll.kernel32.GetLastError() if _mutex else 0
     _dbg("main: mutex created, gle=%s" % _gle)
     if _gle == 183:  # ERROR_ALREADY_EXISTS
         from tkinter import messagebox
@@ -2217,9 +2323,20 @@ def main():
 
     app = App()
     _dbg("main: App() ok, hotkey=%r" % app.hotkey)
-    app.listener = ms.Hotkey(app.hotkey, app.on_hotkey)
+    # Битый спецификатор хоткея в конфиге не должен ронять запуск: откат на f9.
+    try:
+        app.listener = ms.Hotkey(app.hotkey, app.on_hotkey)
+    except Exception as e:
+        _dbg("main: bad hotkey spec %r: %r -> fallback f9" % (app.hotkey, e))
+        app.hotkey = "f9"
+        try:
+            app.listener = ms.Hotkey(app.hotkey, app.on_hotkey)
+        except Exception as e2:
+            _dbg("main: fallback hotkey failed: %r" % e2)
+            app.listener = None
     _dbg("main: Hotkey created")
-    app.listener.start()
+    if app.listener is not None:
+        app.listener.start()
     try:
         _running = app.listener.listener.is_running
     except Exception:
