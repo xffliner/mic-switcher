@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Сборка одного exe-файла: python build_exe.py
+"""Сборка exe в папке (onedir): python build_exe.py
+
+onedir выбран специально: onefile при каждом старте распаковывается в %TEMP%
+(папки _MEIxxxxxx), и при проблемах с %TEMP% (не существует, не та учётка,
+антивирус) приложение вообще не стартует — «Could not create temporary
+directory». onedir работает прямо из своей папки, никаких временных извлечений.
 
 Входной файл — mic_switcher_modern.py (CustomTkinter-UI), который
 импортирует всю логику из mic_switcher.py (PyInstaller подхватит его сам).
@@ -23,7 +28,7 @@ with open(OUT, "w", encoding="utf-8") as f:
 
 subprocess.run([
     sys.executable, "-m", "PyInstaller",
-    "--onefile", "--windowed", "--clean", "--noconfirm",
+    "--onedir", "--windowed", "--clean", "--noconfirm",
     "--name", "MicSwitcher",
     "--icon", "mic.ico",
     "--collect-all", "pystray",
@@ -33,4 +38,4 @@ subprocess.run([
     "--hidden-import", "PIL.ImageFile",
     OUT,
 ], check=True)
-print("BUILD OK -> dist/MicSwitcher.exe")
+print("BUILD OK -> dist/MicSwitcher/MicSwitcher.exe (вся папка — единый комплект)")

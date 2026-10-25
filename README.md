@@ -4,7 +4,8 @@
 
 ![Скриншот](screenshot.png)
 
-Один exe-файл, который мгновенно переключает микрофон «по умолчанию»
+Портативное приложение — папка `MicSwitcher` с `MicSwitcher.exe` внутри, —
+которое мгновенно переключает микрофон «по умолчанию»
 по горячей клавише. Работает и с виртуальным микрофоном (Virtual Audio
 Cable) — удобно, когда в Discord/Zoom уже настроен виртуальный вход.
 
@@ -22,8 +23,8 @@ Cable) — удобно, когда в Discord/Zoom уже настроен ви
 
 ## Установка
 
-1. Скачайте **`MicSwitcher.exe`** со страницы [Releases](https://github.com/xffliner/mic-switcher/releases) (актуальная версия — **v1.0.2**)
-2. Положите файл, например, на рабочий стол — и запустите. **Python не нужен**
+1. Скачайте архив с папкой **`MicSwitcher`** со страницы [Releases](https://github.com/xffliner/mic-switcher/releases) (актуальная версия — **v1.0.2**) и распакуйте её
+2. Положите папку, например, на рабочий стол и запустите `MicSwitcher.exe` внутри неё. **Python не нужен**. Все файлы папки — единый комплект, их нельзя разрывать (приложение не распакуется в `%TEMP%` и не требует прав администратора)
 
 Программа не устанавливается в систему: весь конфиг лежит в файле
 `mic_switcher.json` рядом с exe.
@@ -93,7 +94,7 @@ Cable) — удобно, когда в Discord/Zoom уже настроен ви
 
 ```bash
 pip install -r requirements.txt
-python build_exe.py        # PyInstaller, результат: dist/MicSwitcher.exe
+python build_exe.py        # PyInstaller (onedir), результат: dist/MicSwitcher/
 ```
 
 Структура:
@@ -101,7 +102,8 @@ python build_exe.py        # PyInstaller, результат: dist/MicSwitcher.e
 - `mic_switcher.py` — аудио-логика: устройства, дефолт, роутинг VAC,
   горячая клавиша, конфиг
 - `mic_switcher_modern.py` — UI (CustomTkinter) + точка входа
-- `build_exe.py` — сборка одного автономного exe (иконка вшивается в код)
+- `build_exe.py` — сборка портативной папки `MicSwitcher\` (onedir: работает
+  без распаковки в `%TEMP%`; иконка вшивается в код)
 
 ## Лицензия
 
@@ -111,7 +113,8 @@ python build_exe.py        # PyInstaller, результат: dist/MicSwitcher.e
 
 # MicSwitcher — Mic Switcher
 
-A single exe file that instantly switches the system default microphone
+A portable app — the `MicSwitcher` folder with `MicSwitcher.exe` inside —
+that instantly switches the system default microphone
 with a hotkey. Also routes audio into a Virtual Audio Cable (VAC), so
 your Discord/Zoom virtual-mic input keeps working.
 
@@ -129,8 +132,8 @@ your Discord/Zoom virtual-mic input keeps working.
 
 ## Installation
 
-1. Download **`MicSwitcher.exe`** from [Releases](https://github.com/xffliner/mic-switcher/releases) (current: **v1.0.2**)
-2. Put it on your desktop — and run it. **No Python required**
+1. Download and extract the **`MicSwitcher`** folder from [Releases](https://github.com/xffliner/mic-switcher/releases) (current: **v1.0.2**)
+2. Put the folder anywhere (e.g. your desktop) and run `MicSwitcher.exe` inside it. **No Python required**. The folder is one unit — keep all its files together (the app never unpacks itself into `%TEMP%` and needs no admin rights)
 
 All settings are stored in `mic_switcher.json` next to the exe.
 
