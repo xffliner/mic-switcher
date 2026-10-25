@@ -245,6 +245,31 @@ def discord_stamp():
     return best
 
 
+def _extract_discord_theme(data):
+    """Достать тему из блоба настроек внешнего вида Discord.
+
+    В localStorage Discord лежит запись вида
+      {"appearance":{"shouldSync":false,"settings":{"theme":"dark",
+        "clientThemeSettings":{...},"developerMode":false}}}
+    Клиентская тема (Midnight и подобные) важнее базовой dark/light.
+    """
+    idx = data.find(b'"appearance"')
+    if idx < 0:
+        idx = data.find(b"appearance")
+    if idx < 0:
+        return None
+    blob = data[idx:idx + 3000]
+    # 1) клиентская тема, если она включена (внутри clientThemeSettings)
+    m = re.search(rb'"clientThemeSettings"\s*:\s*\{[^{}]{0,400}?"theme"\s*:\s*"([a-z_]+)"', blob)
+    if m:
+        return m.group(1).decode("ascii", "replace")
+    # 2) обычная тема dark/light
+    m = re.search(rb'"theme"\s*:\s*"([a-z_]+)"', blob)
+    if m:
+        return m.group(1).decode("ascii", "replace")
+    return None
+
+
 def detect_discord_theme():
     """Тема, выбранная в Discord: (ключ палитры, путь к файлу) или (None, None)."""
     for d in discord_leveldb_dirs():
@@ -259,7 +284,8 @@ def detect_discord_theme():
                 files.append((os.path.getmtime(p), p))
             except Exception:
                 pass
-        files.sort(reverse=True)
+        # .log — свежие записи без сжатия, .ldb — старые блоки: свежие проверяем первыми
+        files.sort(key=lambda x: (x[0], x[1].endswith(".log")), reverse=True)
         counts = {"midnight": 0, "dark": 0, "light": 0}
         for _, p in files[:8]:
             try:
@@ -267,15 +293,11 @@ def detect_discord_theme():
                     data = f.read(8 * 1024 * 1024)
             except Exception:
                 continue
-            # Блок настроек внешнего вида: ключ "appearance" и рядом значения темы
-            idx = data.find(b"appearance")
-            if idx >= 0:
-                m = DISCORD_THEME_RE.search(data[idx:idx + 4000])
-                if m:
-                    val = m.group(1).decode("ascii", "replace")
-                    _dbg("theme: discord=%s (%s)" % (val, os.path.basename(p)))
-                    return norm_theme(val), p
-            # Запасной путь: какие значения темы встречаются в файле
+            val = _extract_discord_theme(data)
+            if val:
+                _dbg("theme: discord=%s (%s)" % (val, os.path.basename(p)))
+                return norm_theme(val), p
+            # Запасной путь: каких значений темы в файле больше
             counts["midnight"] += data.count(b'"midnight"')
             counts["dark"] += data.count(b'"dark"')
             counts["light"] += data.count(b'"light"')
@@ -319,7 +341,7 @@ def save_ui_cfg(cfg):
 ICON_B64 = ""
 
 # Релиз
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 
 # ─────────────────────────────────────────────────────────────
 # Локализация (RU / EN)
