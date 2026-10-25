@@ -526,7 +526,7 @@ def save_ui_cfg(cfg):
 ICON_B64 = ""
 
 # Релиз
-VERSION = "1.2.1"
+VERSION = "1.2.2"
 
 # ─────────────────────────────────────────────────────────────
 # Локализация (RU / EN)
@@ -547,8 +547,8 @@ STRINGS = {
         "vac_active":         "активен",
         "vac_inactive":       "не активен",
         "vac_unavailable":    "недоступен",
-        "vac_status_active":  "Активен: {name}  →  Виртуальный микрофон",
-        "vac_status_inactive":"Виртуальный микрофон: роутинг не активен",
+        "vac_status_active":  "Активен: {name}",
+        "vac_status_inactive":"Роутинг VAC не активен",
         "vac_status_novac":   "VAC не установлен — виртуальный микрофон недоступен",
         "vac_discord":        "Discord: настроить звук",
         "vac_windows":        "Windows: настройки звука",
@@ -627,8 +627,8 @@ STRINGS = {
         "vac_active":         "active",
         "vac_inactive":       "inactive",
         "vac_unavailable":    "unavailable",
-        "vac_status_active":  "Active: {name}  →  Virtual mic",
-        "vac_status_inactive":"Virtual mic: routing inactive",
+        "vac_status_active":  "Active: {name}",
+        "vac_status_inactive":"VAC routing inactive",
         "vac_status_novac":   "VAC not installed — virtual mic unavailable",
         "vac_discord":        "Discord: audio settings",
         "vac_windows":        "Windows: sound settings",
@@ -3012,8 +3012,8 @@ class App:
         try:
             if self.router is not None and self.current is not None:
                 name = self._clean_mic_name(self.current.FriendlyName)
-                if len(name) > 28:  # иначе строка наезжает на VU-метр
-                    name = name[:27].rstrip(" ,-") + "…"
+                if len(name) > 34:  # иначе строка наезжает на VU-метр
+                    name = name[:33].rstrip(" ,-") + "…"
                 self.hdr_dot.configure(text_color=ACTIVE)
                 self.hdr_sub.configure(text=self.t("vac_status_active", name=name))
             elif getattr(self, "cable_idx", None) is not None:
