@@ -526,7 +526,7 @@ def save_ui_cfg(cfg):
 ICON_B64 = ""
 
 # Релиз
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 # ─────────────────────────────────────────────────────────────
 # Локализация (RU / EN)
@@ -1142,6 +1142,8 @@ class App:
         self._ui_cfg = load_ui_cfg()
         self._theme_mode = self._ui_cfg.get("theme_mode") or "auto"
         self._apply_theme_mode(rebuild=False)
+        _dbg("theme: start mode=%s source=%s bg=%s"
+             % (self._theme_mode, self._theme_source, self._palette.get("bg")))
 
         # ── Окно ──
         ctk.set_appearance_mode("light" if getattr(self, "_is_light", False) else "dark")
@@ -3009,8 +3011,11 @@ class App:
     def _update_header_status(self):
         try:
             if self.router is not None and self.current is not None:
+                name = self._clean_mic_name(self.current.FriendlyName)
+                if len(name) > 28:  # иначе строка наезжает на VU-метр
+                    name = name[:27].rstrip(" ,-") + "…"
                 self.hdr_dot.configure(text_color=ACTIVE)
-                self.hdr_sub.configure(text=self.t("vac_status_active", name=self._clean_mic_name(self.current.FriendlyName)))
+                self.hdr_sub.configure(text=self.t("vac_status_active", name=name))
             elif getattr(self, "cable_idx", None) is not None:
                 self.hdr_dot.configure(text_color=WARNING)
                 self.hdr_sub.configure(text=self.t("vac_status_inactive"))
