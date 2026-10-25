@@ -26,13 +26,24 @@ import sounddevice as sd
 # (в TEMP, чтобы не зависеть от прав на папку приложения)
 # ─────────────────────────────────────────────────────────────
 def _dbg(msg):
-    try:
-        p = os.path.join(os.environ.get("TEMP") or os.environ.get("TMP") or ".",
-                         "micswitcher_debug.log")
-        with open(p, "a", encoding="utf-8") as f:
-            f.write("[%s] %s\n" % (time.strftime("%H:%M:%S"), msg))
-    except Exception:
-        pass
+    line = "[%s] %s\n" % (time.strftime("%H:%M:%S"), msg)
+    # Для собранного exe пишем рядом с самим exe: TEMP может указывать не туда
+    # (напр. запуск из сервисной сессии), а папка onedir всегда на виду у юзера.
+    tries = []
+    if getattr(sys, "frozen", False):
+        try:
+            tries.append(os.path.join(os.path.dirname(sys.executable), "micswitcher_debug.log"))
+        except Exception:
+            pass
+    tries.append(os.path.join(os.environ.get("TEMP") or os.environ.get("TMP") or ".",
+                              "micswitcher_debug.log"))
+    for p in tries:
+        try:
+            with open(p, "a", encoding="utf-8") as f:
+                f.write(line)
+            return
+        except Exception:
+            pass
 
 # ─────────────────────────────────────────────────────────────
 # Дизайн-токены (та же палитра «аудио-консоль», что в mic_switcher.py)
@@ -1731,6 +1742,10 @@ class App:
         if event.keysym in ms._TK_MOD_KEYS:
             self._set_cap_text(self.t("hk_add_main"))
             return "break"
+        try:
+            self._log("cap ev: keysym=%s state=0x%x char=%r" % (event.keysym, event.state, event.char))
+        except Exception:
+            pass
         res = self._tk_key_to_spec(event)
         if res is None:
             self._cap_fail(self.t("hk_invalid"))
@@ -1746,17 +1761,32 @@ class App:
         self._cap_apply(full)
         return "break"
 
+    def _real_mods(self):
+        """Физическое состояние модификаторов (GetAsyncKeyState), а не биты event.state.
+
+        В event.state приложению приходит «фантомный» Alt (WM_SYSKEYDOWN / залипание
+        после Alt+Tab или проглоченного клавиатурным хуком keyup), и тогда к ЛЮБОЙ
+        клавише лепится «alt+». Физически Alt при этом не нажат — GetAsyncKeyState
+        это видит, и связка собирается по реально удерживаемым клавишам.
+        None — если API недоступен (тогда резерв на биты state)."""
+        try:
+            import ctypes
+            u = ctypes.windll.user32
+        except Exception:
+            return None
+        out = []
+        try:
+            for name, vks in (("shift", (0x10, 0xA0, 0xA1)),
+                              ("ctrl", (0x11, 0xA2, 0xA3)),
+                              ("alt", (0x12, 0xA4, 0xA5)),
+                              ("cmd", (0x5B, 0x5C))):
+                if any(u.GetAsyncKeyState(vk) & 0x8000 for vk in vks):
+                    out.append(name)
+        except Exception:
+            return None
+        return out
+
     def _tk_key_to_spec(self, event):
-        state = event.state
-        mods = []
-        if state & 0x0001:
-            mods.append("shift")
-        if state & 0x0004:
-            mods.append("ctrl")
-        if state & 0x0008:
-            mods.append("alt")
-        if state & 0x0040:
-            mods.append("cmd")
         keysym = event.keysym
         char = event.char
         if keysym in ms._TK_SPECIAL:
@@ -1769,6 +1799,18 @@ class App:
             main = char.lower()
         else:
             return None
+        mods = self._real_mods()
+        if mods is None:  # нет GetAsyncKeyState — резерв на биты Tk event.state
+            state = event.state
+            mods = []
+            if state & 0x0001:
+                mods.append("shift")
+            if state & 0x0004:
+                mods.append("ctrl")
+            if state & 0x0008:
+                mods.append("alt")
+            if state & 0x0040:
+                mods.append("cmd")
         return mods, main
 
     def _set_cap_text(self, t):
@@ -2320,10 +2362,30 @@ def main():
         from tkinter import messagebox
         lang = ms.load_lang()
         d = STRINGS.get(lang, STRINGS["ru"])
-        messagebox.showinfo(
-            d.get("app_title", "Mic Switcher"),
-            d.get("msg_already_run", "Already running"),
-        )
+        # Вместо только сообщения — поднять окно уже запущенного экземпляра
+        # (пользователь кликает exe повторно и ждёт окна, а иконку в трее Windows
+        # мог спрятать в «скрытые значки»).
+        shown = False
+        try:
+            u = ctypes.windll.user32
+            for ttl in (STRINGS["ru"]["app_title"], STRINGS["en"]["app_title"],
+                        "Mic Switcher", "MicSwitcher"):
+                hwnd = u.FindWindowW(None, ttl)
+                if hwnd:
+                    if u.IsIconic(hwnd):
+                        u.ShowWindow(hwnd, 9)  # SW_RESTORE
+                    u.SwitchToThisWindow(hwnd, True)
+                    u.SetForegroundWindow(hwnd)
+                    shown = True
+                    break
+        except Exception as e:
+            _dbg("main: foreground existing failed: %r" % e)
+        _dbg("main: already running, foreground=%s" % shown)
+        if not shown:
+            messagebox.showinfo(
+                d.get("app_title", "Mic Switcher"),
+                d.get("msg_already_run", "Already running"),
+            )
         return
 
     app = App()
