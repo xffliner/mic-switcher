@@ -1647,7 +1647,8 @@ class App:
         self._poll_n = getattr(self, "_poll_n", 0) + 1
         if self._poll_n % 300 == 0:  # ~30 c
             try:
-                _lr = self.listener.listener.is_running if self.listener else None
+                # у pynput-Listener свойство называется running (is_running его нет)
+                _lr = self.listener.listener.running if self.listener else None
             except Exception:
                 _lr = "?"
             _dbg("heartbeat: listener_is_running=%s" % _lr)
@@ -2338,7 +2339,7 @@ def main():
     if app.listener is not None:
         app.listener.start()
     try:
-        _running = app.listener.listener.is_running
+        _running = app.listener.listener.running
     except Exception:
         _running = "?"
     _dbg("main: listener.start() done, is_running=%s" % _running)
