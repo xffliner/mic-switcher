@@ -67,7 +67,7 @@ FONT        = ms.FONT
 ICON_B64 = ""
 
 # Релиз
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 
 # ─────────────────────────────────────────────────────────────
 # Локализация (RU / EN)
@@ -485,6 +485,33 @@ def get_icon_path():
         return p
     except Exception:
         return None
+
+
+def _patch_pystray_win32():
+    """pystray 0.19.5 на части систем падает с PermissionError [WinError 5]
+    в ChangeWindowMessageFilterEx (pystray/_win32.py:_create_window) — поток
+    иконки умирает молча, иконка в трее НЕ появляется. Этот вызов нужен
+    только для перехвата перезапуска explorer, поэтому делаем его
+    неопасным: глотаем ошибку и пишем в отладочный лог."""
+    try:
+        import pystray._util.win32 as _pw
+        if getattr(_pw, "_msh_patched", False):
+            return
+        _orig = getattr(_pw, "ChangeWindowMessageFilterEx", None)
+        if _orig is None:
+            return
+
+        def _safe(*a, **k):
+            try:
+                return _orig(*a, **k)
+            except Exception as e:
+                _dbg("tray: ChangeWindowMessageFilterEx ignored: %r" % e)
+                return 0
+
+        _pw.ChangeWindowMessageFilterEx = _safe
+        _pw._msh_patched = True
+    except Exception as e:
+        _dbg("tray: pystray patch failed: %r" % e)
 
 
 def get_tray_image():
@@ -2060,10 +2087,18 @@ class App:
         if self._hk_capturing:
             self._end_hotkey_capture(restart_old=True)
         self.hidden = True
-        if self.tray_icon is not None:
+        # Прятать «в трей» можно, только если иконка там РЕАЛЬНО есть
+        # (поток pystray мог упасть). Иначе оставляем кнопку в панели задач.
+        tray_ok = False
+        try:
+            tray_ok = self.tray_icon is not None and bool(self.tray_icon.visible)
+        except Exception:
+            tray_ok = False
+        if tray_ok:
             self.root.withdraw()
         else:
             self.root.iconify()
+        _dbg("hide_window: tray_ok=%s -> %s" % (tray_ok, "withdraw" if tray_ok else "iconify"))
 
     def restore(self):
         self.hidden = False
@@ -2081,16 +2116,96 @@ class App:
 
     def _start_tray(self):
         try:
+            _dbg("tray: _start_tray begin")
             import pystray
+            _patch_pystray_win32()
             img = get_tray_image()
             show_item = pystray.MenuItem(self.t("tray_show"), self._tray_show, default=True)
             quit_item = pystray.MenuItem(self.t("tray_quit"), self._tray_quit)
             self.tray_icon = pystray.Icon("MicSwitcher", img, self.t("tray_tooltip"),
                                           pystray.Menu(show_item, quit_item))
-            threading.Thread(target=self.tray_icon.run, daemon=True).start()
+
+            def _on_setup(icon):
+                # ВАЖНО: при своей setup-функции pystray НЕ показывает иконку
+                # сам — нужно явно icon.visible = True (это NIM_ADD).
+                try:
+                    icon.visible = True
+                except Exception as e:
+                    _dbg("tray: setup visible failed: %r" % e)
+                try:
+                    _dbg("tray: icon registered, visible=%s" % icon.visible)
+                except Exception:
+                    pass
+
+            def _run():
+                try:
+                    self.tray_icon.run(setup=_on_setup)
+                    _dbg("tray: run loop exited")
+                except Exception as e:
+                    _dbg("tray: run crashed: %r" % e)
+
+            threading.Thread(target=_run, daemon=True, name="MicSwitcherTray").start()
+            self.root.after(2500, self._check_tray)
         except Exception as e:
+            _dbg("tray error: %r" % e)
             print("tray error:", e)
             self.tray_icon = None
+
+    def _check_tray(self):
+        """Через пару секунд после старта: иконка реально в трее?"""
+        vis = False
+        try:
+            vis = bool(self.tray_icon is not None and self.tray_icon.visible)
+        except Exception:
+            vis = False
+        _dbg("tray: check visible=%s" % vis)
+        if vis:
+            threading.Thread(target=self._promote_tray_icon, daemon=True).start()
+
+    def _promote_tray_icon(self):
+        """Windows 11 прячет новые иконки в меню «скрытые значки».
+        Помечаем свою иконку как заметную (IsProminent=1) в настройках
+        оболочки и перерегистрируем её — иначе пользователь «не видит
+        трей» и думает, что приложение пропало. Best effort: при любом
+        сбое просто пишем в лог."""
+        try:
+            import winreg
+            exe = (sys.executable or "").lower()
+            if not exe:
+                return
+            key_path = r"Control Panel\NotifyIconSettings"
+            time.sleep(1.5)
+            target = None
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path) as rootk:
+                i = 0
+                while True:
+                    try:
+                        sub = winreg.EnumKey(rootk, i)
+                    except OSError:
+                        break
+                    i += 1
+                    try:
+                        with winreg.OpenKey(rootk, sub) as sk:
+                            p, _ = winreg.QueryValueEx(sk, "ExecutablePath")
+                    except OSError:
+                        continue
+                    if str(p).lower() == exe:
+                        target = sub
+            if target is None:
+                _dbg("tray: promote: no NotifyIconSettings entry for %s" % exe)
+                return
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path + "\\" + target,
+                                0, winreg.KEY_SET_VALUE) as sk:
+                winreg.SetValueEx(sk, "IsProminent", 0, winreg.REG_DWORD, 1)
+            _dbg("tray: promote: IsProminent=1 (%s)" % target)
+            icon = self.tray_icon
+            if icon is not None:
+                icon.visible = False
+                time.sleep(0.5)
+                icon.visible = True
+                _dbg("tray: promote: re-registered, visible=%s" % icon.visible)
+        except Exception as e:
+            _dbg("tray: promote failed: %r" % e)
 
     def _tray_show(self, icon, item):
         self._tray_q.put("show")
@@ -2352,7 +2467,7 @@ _mutex = None
 def main():
     global _mutex
     # Защита от запуска второго экземпляра (иначе горячая клавиша сработает дважды)
-    _dbg("main: start (pid=%s)" % os.getpid())
+    _dbg("main: start (pid=%s, v=%s)" % (os.getpid(), VERSION))
     _mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\MicSwitcher_SingleInstance")
     # NULL (мьютекс не создан) — продолжаем запуск; старое значение gle не читаем,
     # иначе свежий экземпляр мог бы ложно решит, что «уже запущен».
@@ -2374,6 +2489,11 @@ def main():
                 if hwnd:
                     if u.IsIconic(hwnd):
                         u.ShowWindow(hwnd, 9)  # SW_RESTORE
+                    elif not u.IsWindowVisible(hwnd):
+                        # Окно скрыто (withdraw), а не свёрнуто: без
+                        # ShowWindow SwitchToThisWindow молча не делает ничего.
+                        u.ShowWindow(hwnd, 1)  # SW_SHOWNORMAL
+                    u.BringWindowToTop(hwnd)
                     u.SwitchToThisWindow(hwnd, True)
                     u.SetForegroundWindow(hwnd)
                     shown = True
