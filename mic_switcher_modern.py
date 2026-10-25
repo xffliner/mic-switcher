@@ -67,7 +67,7 @@ FONT        = ms.FONT
 ICON_B64 = ""
 
 # Релиз
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 
 # ─────────────────────────────────────────────────────────────
 # Локализация (RU / EN)
@@ -1647,22 +1647,29 @@ class App:
     def _poll_hotkey(self):
         # Цикл опроса должен жить вечно: любая ошибка ловится, и повторный
         # after() ставится безусловно (иначе VU-метр и трей «замораживаются»).
+        # ВАЖНО: слив очереди и toggle() разнесены. Раньше toggle() стоял
+        # внутри того же try сразу после while True, и queue.Empty выходил из
+        # try раньше, чем доходило до `if fired:` — хоткей «срабатывал»
+        # (on_hotkey писал в очередь), но переключения не было НИКОГДА.
+        fired = False
         try:
-            fired = False
             while True:
                 self._hotkey_q.get_nowait()
                 fired = True  # автоповтор при удержании: не больше одного свитча за тик
-            if fired:
-                _dbg("poll: hotkey flag -> toggle()")
-                self.toggle()
         except queue.Empty:
             pass
         except Exception as e:
-            _dbg("poll: hotkey loop error: %r" % e)
+            _dbg("poll: hotkey drain error: %r" % e)
+        if fired:
+            _dbg("poll: hotkey flag -> toggle()")
             try:
-                self.show_notification(self.t("toast_switch_fail", e=str(e)))
-            except Exception:
-                pass
+                self.toggle()
+            except Exception as e:
+                _dbg("poll: toggle failed: %r" % e)
+                try:
+                    self.show_notification(self.t("toast_switch_fail", e=str(e)))
+                except Exception:
+                    pass
         try:
             while True:
                 cmd = self._tray_q.get_nowait()
