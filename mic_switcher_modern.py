@@ -77,6 +77,7 @@ THEMES = {
         "track": "#4E5058",        # дорожка слайдера
         "input": "#1E1F22",        # выпадающие списки
         "on_accent": "#FFFFFF",
+        "switch_off": "#80848E",
     },
     # Discord Light
     "light": {
@@ -103,6 +104,7 @@ THEMES = {
         "track": "#D4D7DC",
         "input": "#FFFFFF",
         "on_accent": "#FFFFFF",
+        "switch_off": "#B5BAC1",
     },
     # Discord Midnight — почти чёрная тема
     "midnight": {
@@ -129,6 +131,7 @@ THEMES = {
         "track": "#2B2D31",
         "input": "#1A1B1E",
         "on_accent": "#FFFFFF",
+        "switch_off": "#80848E",
     },
 }
 THEME_ORDER = ("dark", "light", "midnight")
@@ -138,6 +141,7 @@ BG = CARD = SURFACE_2 = CARD_HOVER = BORDER = TEXT = DIM = TEXT_3 = "#000000"
 BTN = BTN_HOVER = ACTIVE = ACCENT_SOFT = DANGER = DANGER_HOVER = WARNING = "#000000"
 KEYCAP_BG = KEYCAP_BORDER = BTN2 = BTN2_HOVER = BTN2_TEXT = TRACK = INPUT_BG = "#000000"
 ON_ACCENT = "#FFFFFF"
+SWITCH_OFF = "#80848E"
 FONT = ms.FONT
 
 
@@ -145,7 +149,7 @@ def apply_palette(name):
     """Применить палитру темы (глобальные цветовые токены UI)."""
     global BG, CARD, SURFACE_2, CARD_HOVER, BORDER, TEXT, DIM, TEXT_3
     global BTN, BTN_HOVER, ACTIVE, ACCENT_SOFT, DANGER, DANGER_HOVER, WARNING
-    global KEYCAP_BG, KEYCAP_BORDER, BTN2, BTN2_HOVER, BTN2_TEXT, TRACK, INPUT_BG, ON_ACCENT
+    global KEYCAP_BG, KEYCAP_BORDER, BTN2, BTN2_HOVER, BTN2_TEXT, TRACK, INPUT_BG, ON_ACCENT, SWITCH_OFF
     pal = THEMES.get(name) or THEMES["dark"]
     BG = pal["bg"]
     CARD = pal["card"]
@@ -170,6 +174,7 @@ def apply_palette(name):
     TRACK = pal["track"]
     INPUT_BG = pal["input"]
     ON_ACCENT = pal["on_accent"]
+    SWITCH_OFF = pal["switch_off"]
     return pal
 
 
@@ -341,7 +346,7 @@ def save_ui_cfg(cfg):
 ICON_B64 = ""
 
 # Релиз
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 
 # ─────────────────────────────────────────────────────────────
 # Локализация (RU / EN)
@@ -356,7 +361,7 @@ STRINGS = {
         "switch_btn":         "Сменить микрофон  ({hk})",
         "btn_settings":       "Настройки",
         "btn_quit":           "Выход",
-        "hint_main":          "ЛКМ — выбрать   •   колесо — громкость (0–250%)   •   тумблер — вкл/выкл микрофона",
+        "hint_main":          "ЛКМ — выбрать  •  колесо — громкость  •  тумблер — вкл/выкл",
         "vac_title":          "Виртуальный микрофон",
         "vac_not_found":      "не найден",
         "vac_active":         "активен",
@@ -435,7 +440,7 @@ STRINGS = {
         "switch_btn":         "Switch mic  ({hk})",
         "btn_settings":       "Settings",
         "btn_quit":           "Exit",
-        "hint_main":          "LMB — select   •   wheel — volume (0–250%)   •   toggle — enable/disable mic",
+        "hint_main":          "LMB — select  •  wheel — volume  •  toggle — on/off",
         "vac_title":          "Virtual microphone",
         "vac_not_found":      "not found",
         "vac_active":         "active",
@@ -824,8 +829,106 @@ def get_tray_image():
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     from PIL import ImageDraw
     d = ImageDraw.Draw(img)
-    d.ellipse((2, 2, S - 2, S - 2), fill=(76, 141, 255, 255))
+    d.ellipse((2, 2, S - 2, S - 2), fill=(88, 101, 242, 255))
     return img
+
+
+class DiscordSelect(ctk.CTkFrame):
+    """Выпадающий список в стиле Discord.
+
+    CTkOptionMenu рисует справа цветной блок-кнопку со стрелкой — в Discord
+    селект выглядит иначе: тёмное поле, серый шеврон справа, без акцентного
+    прямоугольника. Поэтому поле собираем сами, а список показываем tk.Menu.
+    """
+
+    def __init__(self, master, values=None, command=None, height=40, font=None):
+        super().__init__(master, fg_color=INPUT_BG, corner_radius=8,
+                         height=height, border_width=0)
+        self._values = list(values or [])
+        self._command = command
+        self._current = self._values[0] if self._values else ""
+        self._font = font or ctk.CTkFont(family=FONT, size=13)
+        self._label = ctk.CTkLabel(self, text=self._current, font=self._font,
+                                   text_color=TEXT, anchor="w")
+        self._label.pack(side="left", fill="x", expand=True, padx=(12, 0))
+        self._arrow = tk.Canvas(self, width=18, height=18, bd=0,
+                                highlightthickness=0, bg=INPUT_BG)
+        self._arrow.create_line(4, 7, 9, 12, 14, 7, fill=DIM, width=2,
+                                capstyle="round", joinstyle="round")
+        self._arrow.pack(side="right", padx=(0, 10))
+        self.pack_propagate(False)
+        for wdg in (self, self._label, self._arrow):
+            try:
+                wdg.configure(cursor="hand2")
+            except Exception:
+                pass
+            wdg.bind("<Button-1>", self._open)
+            wdg.bind("<Enter>", self._on_enter)
+            wdg.bind("<Leave>", self._on_leave)
+        self._hover = False
+
+    # ── API, совместимый с CTkOptionMenu ──
+    def set(self, value):
+        self._current = value
+        try:
+            self._label.configure(text=value)
+        except Exception:
+            pass
+
+    def get(self):
+        return self._current
+
+    def set_values(self, values):
+        self._values = list(values or [])
+        if self._values and self._current not in self._values:
+            self.set(self._values[0])
+
+    def configure_values(self, values):
+        self.set_values(values)
+
+    # ── поведение ──
+    def _on_enter(self, _e=None):
+        if self._hover:
+            return
+        self._hover = True
+        try:
+            self.configure(fg_color=SURFACE_2)
+            self._arrow.configure(bg=SURFACE_2)
+        except Exception:
+            pass
+
+    def _on_leave(self, _e=None):
+        if not self._hover:
+            return
+        self._hover = False
+        try:
+            self.configure(fg_color=INPUT_BG)
+            self._arrow.configure(bg=INPUT_BG)
+        except Exception:
+            pass
+
+    def _open(self, _e=None):
+        try:
+            menu = tk.Menu(self, tearoff=0, bd=0, relief="flat",
+                           activeborderwidth=0, bg=INPUT_BG, fg=TEXT,
+                           activebackground=BTN, activeforeground="#FFFFFF",
+                           font=(FONT, 11))
+            for v in self._values:
+                menu.add_command(label=v, command=lambda v=v: self._choose(v))
+            menu.tk_popup(self.winfo_rootx(),
+                          self.winfo_rooty() + self.winfo_height() + 2)
+            menu.grab_release()
+        except Exception as e:
+            _dbg("select: open failed: %r" % e)
+
+    def _choose(self, value):
+        self.set(value)
+        if self._command is not None:
+            try:
+                self._command(value)
+            except Exception as e:
+                _dbg("select: command failed: %r" % e)
+
 
 
 class App:
@@ -878,14 +981,14 @@ class App:
 
         # Шрифты (после создания корневых окон)
         global F_TITLE, F_H2, F_BODY, F_BODY_B, F_CAP, F_CAP_B, F_MICRO, F_BTN
-        F_TITLE  = ctk.CTkFont(family=FONT, size=18, weight="bold")
-        F_H2     = ctk.CTkFont(family=FONT, size=13, weight="bold")
-        F_BODY   = ctk.CTkFont(family=FONT, size=12)
-        F_BODY_B = ctk.CTkFont(family=FONT, size=12, weight="bold")
-        F_CAP    = ctk.CTkFont(family=FONT, size=11)
-        F_CAP_B  = ctk.CTkFont(family=FONT, size=11, weight="bold")
-        F_MICRO  = ctk.CTkFont(family=FONT, size=10)
-        F_BTN    = ctk.CTkFont(family=FONT, size=14, weight="bold")
+        F_TITLE  = ctk.CTkFont(family=FONT, size=19, weight="bold")
+        F_H2     = ctk.CTkFont(family=FONT, size=15, weight="bold")
+        F_BODY   = ctk.CTkFont(family=FONT, size=13)
+        F_BODY_B = ctk.CTkFont(family=FONT, size=13, weight="bold")
+        F_CAP    = ctk.CTkFont(family=FONT, size=12)
+        F_CAP_B  = ctk.CTkFont(family=FONT, size=12, weight="bold")
+        F_MICRO  = ctk.CTkFont(family=FONT, size=11)
+        F_BTN    = ctk.CTkFont(family=FONT, size=14)
 
         # ── Данные ──
         self.refresh()
@@ -1119,7 +1222,7 @@ class App:
         self._sec_mics_lbl.pack(side="left")
         self._reset_vol_btn = ctk.CTkButton(sec, text=self.t("reset_vol"), command=self.reset_volumes,
                       fg_color="transparent", hover_color=SURFACE_2, text_color=TEXT_3,
-                      corner_radius=6, height=24, font=F_CAP_B)
+                      corner_radius=6, height=26, font=F_CAP)
         self._reset_vol_btn.pack(side="right")
 
         # Список микрофонов (скролл-область фиксированной высоты —
@@ -1146,18 +1249,18 @@ class App:
         row.pack(fill="x", padx=20, pady=(0, 8))
         self._btn_settings = ctk.CTkButton(row, text=self.t("btn_settings"), command=self.open_settings,
                       fg_color=BTN2, hover_color=BTN2_HOVER, text_color=BTN2_TEXT,
-                      corner_radius=8, height=34, font=F_CAP_B)
+                      corner_radius=8, height=36, font=F_BODY)
         self._btn_settings.pack(side="left", fill="x",
                                                                 expand=True, padx=(0, 4))
         self._btn_quit = ctk.CTkButton(row, text=self.t("btn_quit"), command=self.quit_app,
-                      fg_color="transparent", hover_color=SURFACE_2, text_color=DANGER,
-                      corner_radius=8, height=34, font=F_CAP_B)
+                      fg_color=BTN2, hover_color=BTN2_HOVER, text_color=DANGER,
+                      corner_radius=8, height=36, font=F_BODY)
         self._btn_quit.pack(side="left", fill="x",
                                                                 expand=True, padx=(4, 0))
 
         # ── Подсказка + версия ──
         self._hint_lbl = ctk.CTkLabel(self.main,
-                     text=self.t("hint_main"),
+                     text=self.t("hint_main"), wraplength=440,
                      font=F_MICRO, text_color=TEXT_3, anchor="w")
         self._hint_lbl.pack(fill="x", padx=20, pady=(2, 4))
         self._footer_lbl = ctk.CTkLabel(self.main, text=self.t("footer", ver=VERSION),
@@ -1186,12 +1289,12 @@ class App:
         self._vac_discord_btn = ctk.CTkButton(links, text=self.t("vac_discord"),
                       command=self.open_discord_voice_settings,
                       fg_color=BTN2, hover_color=BTN2_HOVER, text_color=BTN2_TEXT,
-                      corner_radius=8, height=30, font=F_CAP_B)
+                      corner_radius=8, height=32, font=F_BODY)
         self._vac_discord_btn.pack(side="left")
         self._vac_windows_btn = ctk.CTkButton(links, text=self.t("vac_windows"),
                       command=self.open_windows_sound_settings,
                       fg_color=BTN2, hover_color=BTN2_HOVER, text_color=BTN2_TEXT,
-                      corner_radius=8, height=30, font=F_CAP_B)
+                      corner_radius=8, height=32, font=F_BODY)
         self._vac_windows_btn.pack(side="left", padx=(8, 0))
 
     # ═══════════════════════════ ЭКРАН: НАСТРОЙКИ ═══════════════════════════
@@ -1210,7 +1313,7 @@ class App:
         self._settings_title.pack(side="left")
         self._btn_back = ctk.CTkButton(hdr, text=self.t("btn_back"), command=self.close_settings,
                       fg_color=BTN2, hover_color=BTN2_HOVER, text_color=BTN2_TEXT,
-                      corner_radius=8, height=30, font=F_CAP_B)
+                      corner_radius=8, height=32, font=F_BODY)
         self._btn_back.pack(side="right")
 
         # ── Виртуальный микрофон ──
@@ -1224,7 +1327,7 @@ class App:
         self.vac_status_row.pack(fill="x", padx=14)
         self._settings_test_btn = ctk.CTkButton(c1, text=self.t("vac_test_btn"), command=self.test_virtual_mic,
                       fg_color=BTN, hover_color=BTN_HOVER, text_color=ON_ACCENT,
-                      corner_radius=8, height=36, font=F_BODY_B)
+                      corner_radius=8, height=36, font=F_BTN)
         self._settings_test_btn.pack(fill="x", padx=14, pady=(8, 4))
         self.vac_test_lbl = ctk.CTkLabel(c1, text="", font=F_CAP, text_color=DIM,
                                          anchor="w", justify="left", height=1)
@@ -1242,13 +1345,8 @@ class App:
         dev_row.pack(fill="x", padx=14)
         self._settings_mon_out_lbl = ctk.CTkLabel(dev_row, text=self.t("vac_mon_out"), font=F_CAP, text_color=DIM)
         self._settings_mon_out_lbl.pack(side="left")
-        self.mon_out_menu = ctk.CTkOptionMenu(dev_row, values=[], command=lambda v: None,
-                                              fg_color=INPUT_BG, button_color=BTN,
-                                              button_hover_color=BTN_HOVER, text_color=TEXT,
-                                              font=F_CAP, height=32, corner_radius=8,
-                                              dropdown_fg_color=INPUT_BG,
-                                              dropdown_hover_color=SURFACE_2,
-                                              dropdown_text_color=TEXT)
+        self.mon_out_menu = DiscordSelect(dev_row, values=[], command=lambda v: None,
+                                          height=40, font=F_BODY)
         self.mon_out_menu.pack(side="left", fill="x", expand=True, padx=(8, 0))
         try:
             self.mon_out_menu.set("—")
@@ -1256,7 +1354,7 @@ class App:
             pass
         self.mon_btn = ctk.CTkButton(c1, text=self.t("vac_mon_start"), command=self.toggle_monitor,
                                      fg_color=BTN, hover_color=BTN_HOVER, text_color=ON_ACCENT,
-                                     corner_radius=8, height=36, font=F_BODY_B)
+                                     corner_radius=8, height=36, font=F_BTN)
         self.mon_btn.pack(fill="x", padx=14, pady=(10, 4))
         self.mon_lbl = ctk.CTkLabel(c1, text="", font=F_CAP, text_color=DIM,
                                     anchor="w", justify="left", height=1)
@@ -1270,10 +1368,9 @@ class App:
         self._settings_hk_title.pack(fill="x", padx=14, pady=(12, 4))
         self.hk_field = ctk.CTkButton(c2, text=self.display_hotkey(),
                                       command=self._begin_hotkey_capture,
-                                      fg_color=KEYCAP_BG, hover_color=SURFACE_2,
+                                      fg_color=INPUT_BG, hover_color=SURFACE_2,
                                       text_color=TEXT, corner_radius=8, height=40,
-                                      border_width=1, border_color=KEYCAP_BORDER,
-                                      font=F_BODY_B)
+                                      border_width=0, font=F_BTN)
         self.hk_field.pack(fill="x", padx=14)
         self._settings_hk_hint = ctk.CTkLabel(c2, text=self.t("hk_hint"),
                      font=F_MICRO, text_color=TEXT_3, anchor="w")
@@ -1286,19 +1383,12 @@ class App:
                      anchor="w")
         self._settings_autostart_title.pack(fill="x", padx=14, pady=(12, 4))
         self.auto_var = tk.BooleanVar(value=ms.autostart_enabled())
-        self._autostart_chk = ctk.CTkCheckBox(c3, text=self.t("autostart_chk"), variable=self.auto_var,
-                        command=self._apply_autostart,
-                        fg_color=ACTIVE, hover_color=ACTIVE, text_color=TEXT, font=F_BODY,
-                        checkbox_width=18, checkbox_height=18, corner_radius=4,
-                        border_width=1, border_color=TRACK)
-        self._autostart_chk.pack(fill="x", padx=14, pady=(0, 8))
+        self._autostart_chk, self._autostart_lbl = self._switch_row(
+            c3, self.t("autostart_chk"), self.auto_var, self._apply_autostart)
         self.topmost_var = tk.BooleanVar(value=self._topmost)
-        self._topmost_chk = ctk.CTkCheckBox(c3, text=self.t("topmost_chk"), variable=self.topmost_var,
-                        command=self._apply_topmost,
-                        fg_color=ACTIVE, hover_color=ACTIVE, text_color=TEXT, font=F_BODY,
-                        checkbox_width=18, checkbox_height=18, corner_radius=4,
-                        border_width=1, border_color=TRACK)
-        self._topmost_chk.pack(fill="x", padx=14, pady=(0, 12))
+        self._topmost_chk, self._topmost_lbl = self._switch_row(
+            c3, self.t("topmost_chk"), self.topmost_var, self._apply_topmost)
+        ctk.CTkFrame(c3, fg_color="transparent", height=4).pack(fill="x")
 
         # ── Язык + Оформление ──
         c4 = ctk.CTkFrame(s, fg_color=CARD, corner_radius=10, border_width=1, border_color=BORDER)
@@ -1306,14 +1396,9 @@ class App:
         self._settings_lang_title = ctk.CTkLabel(c4, text=self.t("sec_lang"), font=F_H2, text_color=TEXT,
                      anchor="w")
         self._settings_lang_title.pack(fill="x", padx=14, pady=(12, 4))
-        self.lang_menu = ctk.CTkOptionMenu(c4, values=["Русский", "English"],
-                                           command=self._on_lang_change,
-                                           fg_color=INPUT_BG, button_color=BTN,
-                                           button_hover_color=BTN_HOVER, text_color=TEXT,
-                                           font=F_BODY, height=36, corner_radius=8,
-                                           dropdown_fg_color=INPUT_BG,
-                                           dropdown_hover_color=SURFACE_2,
-                                           dropdown_text_color=TEXT)
+        self.lang_menu = DiscordSelect(c4, values=["Русский", "English"],
+                                       command=self._on_lang_change,
+                                       height=40, font=F_BODY)
         self.lang_menu.set("Русский" if self.lang == "ru" else "English")
         self.lang_menu.pack(fill="x", padx=14, pady=(0, 10))
 
@@ -1323,20 +1408,30 @@ class App:
         self._settings_theme_title = ctk.CTkLabel(c4, text=self.t("sec_theme"), font=F_H2,
                                                   text_color=TEXT, anchor="w")
         self._settings_theme_title.pack(fill="x", padx=14, pady=(10, 4))
-        self.theme_menu = ctk.CTkOptionMenu(c4, values=self.theme_menu_values(),
-                                            command=self._on_theme_choice,
-                                            fg_color=INPUT_BG, button_color=BTN,
-                                            button_hover_color=BTN_HOVER, text_color=TEXT,
-                                            font=F_BODY, height=36, corner_radius=8,
-                                            dropdown_fg_color=INPUT_BG,
-                                            dropdown_hover_color=SURFACE_2,
-                                            dropdown_text_color=TEXT)
+        self.theme_menu = DiscordSelect(c4, values=self.theme_menu_values(),
+                                        command=self._on_theme_choice,
+                                        height=40, font=F_BODY)
         self.theme_menu.set(self.theme_label(self._theme_mode))
         self.theme_menu.pack(fill="x", padx=14)
         self._settings_theme_hint = ctk.CTkLabel(c4, text=self.theme_source_text(),
                                                  font=F_MICRO, text_color=TEXT_3,
                                                  anchor="w", justify="left")
         self._settings_theme_hint.pack(fill="x", padx=14, pady=(8, 12))
+
+    def _switch_row(self, parent, text, var, command):
+        """Строка настройки в стиле Discord: подпись слева, тумблер справа."""
+        row = ctk.CTkFrame(parent, fg_color="transparent")
+        row.pack(fill="x", padx=14, pady=(0, 10))
+        lbl = ctk.CTkLabel(row, text=text, font=F_BODY, text_color=TEXT, anchor="w")
+        lbl.pack(side="left", fill="x", expand=True)
+        sw = ctk.CTkSwitch(row, text="", variable=var, command=command,
+                           onvalue=True, offvalue=False,
+                           progress_color=ACTIVE, fg_color=SWITCH_OFF,
+                           button_color="#FFFFFF", button_hover_color="#FFFFFF",
+                           switch_width=40, switch_height=22, corner_radius=11,
+                           border_width=0, width=44, height=24)
+        sw.pack(side="right")
+        return sw, lbl
 
     def _show_screen(self, name):
         """Смена экрана с плавным въездом нового (slide-in, ~190 мс).
@@ -1423,7 +1518,7 @@ class App:
         if devices:
             names = [d["name"] for d in devices]
             try:
-                self.mon_out_menu.configure(values=names)
+                self.mon_out_menu.set_values(names)
                 self.mon_out_menu.set(names[self._find_default_index(devices)])
             except Exception:
                 pass
@@ -1489,12 +1584,13 @@ class App:
             self._settings_hk_title.configure(text=self.t("sec_hotkey"))
             self._settings_hk_hint.configure(text=self.t("hk_hint"))
             self._settings_autostart_title.configure(text=self.t("sec_autostart"))
-            self._autostart_chk.configure(text=self.t("autostart_chk"))
+            self._autostart_lbl.configure(text=self.t("autostart_chk"))
+            self._topmost_lbl.configure(text=self.t("topmost_chk"))
             self._settings_lang_title.configure(text=self.t("sec_lang"))
             # Оформление (темы Discord)
             try:
                 self._settings_theme_title.configure(text=self.t("sec_theme"))
-                self.theme_menu.configure(values=self.theme_menu_values())
+                self.theme_menu.set_values(self.theme_menu_values())
                 self.theme_menu.set(self.theme_label(self._theme_mode))
                 self._settings_theme_hint.configure(text=self.theme_source_text())
             except Exception:
@@ -1544,7 +1640,7 @@ class App:
                          wraplength=400).pack(anchor="w", pady=(0, 6))
             ctk.CTkButton(self.mic_list, text=self.t("btn_refresh"), command=self._refresh_now,
                           fg_color=BTN2, hover_color=BTN2_HOVER, text_color=BTN2_TEXT,
-                          corner_radius=999, height=30, font=F_CAP_B).pack(anchor="w", pady=(0, 4))
+                          corner_radius=8, height=32, font=F_BODY).pack(anchor="w", pady=(0, 4))
             self._resync_layout()
             return
 
@@ -1586,10 +1682,10 @@ class App:
             cb = ctk.CTkSwitch(top, text="", variable=cb_var,
                                command=lambda m=mic: self.toggle_exclude(m),
                                progress_color=ACTIVE,
-                               fg_color=TRACK,
+                               fg_color=SWITCH_OFF,
                                button_color="#FFFFFF", button_hover_color="#FFFFFF",
-                               switch_width=36, switch_height=20, corner_radius=999,
-                               width=36, height=20)
+                               switch_width=40, switch_height=22, corner_radius=11,
+                               border_width=0, width=44, height=24)
             cb.pack(side="right", padx=(10, 0))
 
             accent = ctk.CTkFrame(top, width=3, height=20, corner_radius=2,
@@ -1636,7 +1732,8 @@ class App:
             slider = ctk.CTkSlider(vol_row, from_=0, to=250, number_of_steps=250,
                                    command=lambda v, m=mic: self._on_volume_change(m, v),
                                    progress_color=BTN, button_color="#FFFFFF",
-                                   button_hover_color=BTN, fg_color=TRACK, height=14)
+                                   button_hover_color="#FFFFFF", fg_color=TRACK,
+                                   height=8, button_length=16, corner_radius=4)
             slider.pack(side="left", fill="x", expand=True)
             try:
                 slider.set(val)
