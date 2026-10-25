@@ -146,11 +146,15 @@ FONT = ms.FONT
 
 
 def apply_palette(name):
-    """Применить палитру темы (глобальные цветовые токены UI)."""
+    """Применить именованную тему."""
+    return apply_palette_dict(THEMES.get(name) or THEMES["dark"])
+
+
+def apply_palette_dict(pal):
+    """Применить готовую палитру (в т.ч. снятую с окна Discord)."""
     global BG, CARD, SURFACE_2, CARD_HOVER, BORDER, TEXT, DIM, TEXT_3
     global BTN, BTN_HOVER, ACTIVE, ACCENT_SOFT, DANGER, DANGER_HOVER, WARNING
     global KEYCAP_BG, KEYCAP_BORDER, BTN2, BTN2_HOVER, BTN2_TEXT, TRACK, INPUT_BG, ON_ACCENT, SWITCH_OFF
-    pal = THEMES.get(name) or THEMES["dark"]
     BG = pal["bg"]
     CARD = pal["card"]
     SURFACE_2 = pal["surface2"]
@@ -315,6 +319,182 @@ def detect_discord_theme():
     return None, None
 
 
+# ─────────────────────────────────────────────────────────────
+# Тема по фактическим цветам окна Discord.
+# Локальный JSON хранит только базовую dark/light, а выбранная
+# клиентская тема (например «Пепел») видна лишь на экране — поэтому
+# снимаем фон и панели прямо с окна и строим палитру из них.
+# ─────────────────────────────────────────────────────────────
+def _hex_to_rgb(hex_color):
+    h = (hex_color or "").lstrip("#")
+    try:
+        return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+    except Exception:
+        return (0, 0, 0)
+
+
+def _rgb_to_hex(rgb):
+    return "#%02X%02X%02X" % (max(0, min(255, int(round(rgb[0])))),
+                              max(0, min(255, int(round(rgb[1])))),
+                              max(0, min(255, int(round(rgb[2])))))
+
+
+def _mix(c1, c2, t):
+    return (c1[0] + (c2[0] - c1[0]) * t,
+            c1[1] + (c2[1] - c1[1]) * t,
+            c1[2] + (c2[2] - c1[2]) * t)
+
+
+def _color_dist(c1, c2):
+    return sum((a - b) ** 2 for a, b in zip(c1, c2)) ** 0.5
+
+
+def _luminance(rgb):
+    r, g, b = [v / 255.0 for v in rgb]
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def palette_from_colors(bg_rgb, panel_rgb):
+    """Собрать полную палитру из фона чата и цвета панелей Discord."""
+    dark = _luminance(bg_rgb) < 0.5
+    if _color_dist(bg_rgb, panel_rgb) < 8:
+        panel_rgb = _mix(bg_rgb, (255, 255, 255) if dark else (0, 0, 0), 0.05)
+    white, black = (255, 255, 255), (0, 0, 0)
+    if dark:
+        card = panel_rgb
+        card_hover = _mix(card, white, 0.07)
+        surface2 = _mix(card, white, 0.07)
+        border = _mix(panel_rgb, black, 0.35)
+        keycap_bg = _mix(panel_rgb, black, 0.35)
+        keycap_border = _mix(panel_rgb, white, 0.12)
+        btn2 = _mix(panel_rgb, white, 0.14)
+        btn2_hover = _mix(panel_rgb, white, 0.26)
+        btn2_text = "#FFFFFF"
+        track = _mix(panel_rgb, white, 0.16)
+        input_bg = _mix(panel_rgb, black, 0.28)
+        text, dim, text3 = "#F2F3F5", "#B5BAC1", "#949BA4"
+        active = "#23A55A"
+        danger, danger_hover = "#DA373C", "#A12828"
+        warning = "#F0B232"
+        switch_off = "#80848E"
+        accent_soft = _mix(card, _hex_to_rgb("#5865F2"), 0.30)
+    else:
+        card = panel_rgb
+        card_hover = _mix(card, black, 0.05)
+        surface2 = _mix(card, black, 0.05)
+        border = _mix(bg_rgb, black, 0.12)
+        keycap_bg = _mix(bg_rgb, black, 0.06)
+        keycap_border = _mix(bg_rgb, black, 0.12)
+        btn2 = _mix(bg_rgb, black, 0.08)
+        btn2_hover = _mix(bg_rgb, black, 0.16)
+        btn2_text = "#060607"
+        track = _mix(bg_rgb, black, 0.12)
+        input_bg = "#FFFFFF"
+        text, dim, text3 = "#060607", "#4E5058", "#80848E"
+        active = "#248046"
+        danger, danger_hover = "#D83C3E", "#B03234"
+        warning = "#C27C0E"
+        switch_off = "#B5BAC1"
+        accent_soft = _mix(card, _hex_to_rgb("#5865F2"), 0.18)
+    return {
+        "bg": _rgb_to_hex(bg_rgb),
+        "card": _rgb_to_hex(card),
+        "surface2": _rgb_to_hex(surface2),
+        "card_hover": _rgb_to_hex(card_hover),
+        "border": _rgb_to_hex(border),
+        "text": text,
+        "dim": dim,
+        "text3": text3,
+        "btn": "#5865F2",
+        "btn_hover": "#4752C4",
+        "active": active,
+        "accent_soft": _rgb_to_hex(accent_soft),
+        "danger": danger,
+        "danger_hover": danger_hover,
+        "warning": warning,
+        "keycap_bg": _rgb_to_hex(keycap_bg),
+        "keycap_border": _rgb_to_hex(keycap_border),
+        "btn2": _rgb_to_hex(btn2),
+        "btn2_hover": _rgb_to_hex(btn2_hover),
+        "btn2_text": btn2_text,
+        "track": _rgb_to_hex(track),
+        "input": _rgb_to_hex(input_bg),
+        "on_accent": "#FFFFFF",
+        "switch_off": switch_off,
+    }
+
+
+class _BMIH(ctypes.Structure):
+    _fields_ = [("biSize", ctypes.c_uint32), ("biWidth", ctypes.c_int32),
+                ("biHeight", ctypes.c_int32), ("biPlanes", ctypes.c_uint16),
+                ("biBitCount", ctypes.c_uint16), ("biCompression", ctypes.c_uint32),
+                ("biSizeImage", ctypes.c_uint32), ("biXPelsPerMeter", ctypes.c_int32),
+                ("biYPelsPerMeter", ctypes.c_int32), ("biClrUsed", ctypes.c_uint32),
+                ("biClrImportant", ctypes.c_uint32)]
+
+
+def sample_discord_colors():
+    """Снять с окна Discord фактический фон и цвет панелей: ("#RRGGBB", "#RRGGBB")."""
+    try:
+        hwnd = ms._find_discord_hwnd()
+        if not hwnd:
+            return None
+        import ctypes.wintypes as wt
+        from collections import Counter
+        from PIL import Image
+
+        u = ctypes.windll.user32
+        gdi = ctypes.windll.gdi32
+        if u.IsIconic(hwnd) or not u.IsWindowVisible(hwnd):
+            return None
+        rect = wt.RECT()
+        u.GetWindowRect(hwnd, ctypes.byref(rect))
+        width = rect.right - rect.left
+        height = rect.bottom - rect.top
+        if width < 300 or height < 200:
+            return None
+        hdc = u.GetWindowDC(hwnd)
+        mdc = gdi.CreateCompatibleDC(hdc)
+        bmp = gdi.CreateCompatibleBitmap(hdc, width, height)
+        gdi.SelectObject(mdc, bmp)
+        try:
+            u.PrintWindow(hwnd, mdc, 0x00000002)  # PW_RENDERFULLCONTENT
+            bi = _BMIH()
+            bi.biSize = ctypes.sizeof(_BMIH)
+            bi.biWidth = width
+            bi.biHeight = -height
+            bi.biPlanes = 1
+            bi.biBitCount = 32
+            buf = ctypes.create_string_buffer(width * height * 4)
+            gdi.GetDIBits(mdc, bmp, 0, height, buf, ctypes.byref(bi), 0)
+        finally:
+            gdi.DeleteObject(bmp)
+            gdi.DeleteDC(mdc)
+            u.ReleaseDC(hwnd, hdc)
+        img = Image.frombuffer("RGBA", (width, height), buf, "raw", "BGRA", 0, 1).convert("RGB")
+        small = img.resize((max(8, width // 10), max(8, height // 10)))
+        pixels = list(small.getdata())
+        counts = Counter(pixels)
+        if not counts:
+            return None
+        total = len(pixels)
+        top = counts.most_common(16)
+        bg_rgb, bg_n = top[0]
+        if bg_rgb == (0, 0, 0) and bg_n > 0.9 * total:
+            return None  # окно не отрисовалось
+        panel_rgb = None
+        for color, _cnt in top[1:]:
+            if _color_dist(color, bg_rgb) >= 10:
+                panel_rgb = color
+                break
+        if panel_rgb is None:
+            panel_rgb = _mix(bg_rgb, (0, 0, 0) if _luminance(bg_rgb) > 0.5 else (255, 255, 255), 0.05)
+        return _rgb_to_hex(bg_rgb), _rgb_to_hex(panel_rgb)
+    except Exception as e:
+        _dbg("theme: sample failed: %r" % e)
+        return None
+
+
 # Настройки оформления приложения (отдельный файл, чтобы не менять конфиг логики)
 def ui_cfg_path():
     try:
@@ -346,7 +526,7 @@ def save_ui_cfg(cfg):
 ICON_B64 = ""
 
 # Релиз
-VERSION = "1.1.2"
+VERSION = "1.2.0"
 
 # ─────────────────────────────────────────────────────────────
 # Локализация (RU / EN)
@@ -425,6 +605,7 @@ STRINGS = {
         "theme_light":        "Discord Light",
         "theme_midnight":     "Discord Midnight",
         "theme_src_discord":  "Тема взята из Discord: {name}",
+        "theme_src_sampled":  "Тема снята с окна Discord: фон {bg} · панели {panel}",
         "theme_src_manual":   "Тема выбрана вручную",
         "theme_src_none":     "Discord не найден — тёмная тема Dark",
         "theme_name_dark":    "Dark",
@@ -504,6 +685,7 @@ STRINGS = {
         "theme_light":        "Discord Light",
         "theme_midnight":     "Discord Midnight",
         "theme_src_discord":  "Theme from Discord: {name}",
+        "theme_src_sampled":  "Sampled from the Discord window: bg {bg} · panels {panel}",
         "theme_src_manual":   "Theme chosen manually",
         "theme_src_none":     "Discord not found — Dark theme",
         "theme_name_dark":    "Dark",
@@ -962,7 +1144,7 @@ class App:
         self._apply_theme_mode(rebuild=False)
 
         # ── Окно ──
-        ctk.set_appearance_mode("light" if self.theme == "light" else "dark")
+        ctk.set_appearance_mode("light" if getattr(self, "_is_light", False) else "dark")
         self.root = ctk.CTk()
         self.root.title(self.t("app_title"))
         self.root.configure(fg_color=BG)
@@ -1040,24 +1222,30 @@ class App:
 
     # ═══════════════════════════ ТЕМА (Discord) ═══════════════════════════
     def _resolve_theme(self):
-        """Какая тема нужна сейчас: (ключ палитры, источник)."""
+        """Какая тема нужна сейчас: (ключ, источник, палитра)."""
         mode = getattr(self, "_theme_mode", "auto")
         if mode in THEMES:
-            return mode, "manual"
+            return mode, "manual", dict(THEMES[mode])
+        colors = sample_discord_colors()
+        if colors:
+            bg, panel = colors
+            return "auto", "discord-window", palette_from_colors(_hex_to_rgb(bg), _hex_to_rgb(panel))
         detected, _src = detect_discord_theme()
         if detected:
-            return detected, "discord"
-        return "dark", "none"
+            return detected, "discord-file", dict(THEMES[detected])
+        return "dark", "none", dict(THEMES["dark"])
 
     def _apply_theme_mode(self, rebuild=True):
         """Пересчитать тему из режима и (при rebuild) перерисовать интерфейс."""
-        name, source = self._resolve_theme()
+        name, source, pal = self._resolve_theme()
         self.theme = name
         self._theme_source = source
-        pal = apply_palette(name)
+        self._palette = pal
+        self._is_light = _luminance(_hex_to_rgb(pal["bg"])) > 0.5
+        apply_palette_dict(pal)
         if rebuild:
             try:
-                ctk.set_appearance_mode("light" if name == "light" else "dark")
+                ctk.set_appearance_mode("light" if self._is_light else "dark")
             except Exception:
                 pass
             try:
@@ -1075,7 +1263,10 @@ class App:
         return [self.theme_label(m) for m in ("auto",) + THEME_ORDER]
 
     def theme_source_text(self):
-        if self._theme_source == "discord":
+        if self._theme_source == "discord-window":
+            pal = getattr(self, "_palette", {})
+            return self.t("theme_src_sampled", bg=pal.get("bg", "?"), panel=pal.get("card", "?"))
+        if self._theme_source == "discord-file":
             return self.t("theme_src_discord", name=self.t("theme_name_" + self.theme))
         if self._theme_source == "manual":
             return self.t("theme_src_manual")
@@ -1116,7 +1307,7 @@ class App:
                     return 0
                 return r | (g << 8) | (b << 16)
 
-            _cint(20, 1 if self.theme != "light" else 0)  # immersive dark mode
+            _cint(20, 0 if getattr(self, "_is_light", False) else 1)  # immersive dark mode
             _cint(35, _colorref(BG))                      # цвет заголовка = фон
             _cint(34, _colorref(BORDER))                  # цвет рамки
             _cint(36, _colorref(TEXT))                    # цвет текста заголовка
@@ -1148,25 +1339,36 @@ class App:
             if self._theme_mode != "auto":
                 return
             self._apply_theme_mode(rebuild=True)
-            _dbg("theme: switched to %s (from Discord)" % self.theme)
+            _dbg("theme: switched to %s (%s, bg=%s)"
+                 % (self.theme, self._theme_source, getattr(self, "_palette", {}).get("bg")))
         except Exception as e:
             _dbg("theme: apply detected failed: %r" % e)
 
+    def _theme_signature(self):
+        """Отпечаток темы Discord: цвета окна, а если окно недоступно — данные клиента."""
+        if getattr(self, "_theme_mode", "auto") != "auto":
+            return None
+        colors = sample_discord_colors()
+        if colors:
+            return ("win",) + colors
+        detected, _src = detect_discord_theme()
+        return ("file", detected)
+
     def _watch_discord_theme(self):
         """Фон: сменили тему в Discord — подстраиваемся (только режим «Авто»)."""
-        last = discord_stamp()
+        last = self._theme_signature()
         while True:
-            time.sleep(5)
+            time.sleep(4)
             try:
-                if self._theme_mode != "auto":
+                sig = self._theme_signature()
+                if sig is None or sig == last:
                     continue
-                st = discord_stamp()
-                if not st or st == last:
+                # Окно Discord свернули/закрыли: не сбрасываем уже снятые цвета
+                if sig[0] == "file" and getattr(self, "_theme_source", "") == "discord-window":
+                    last = sig
                     continue
-                last = st
-                detected, _src = detect_discord_theme()
-                if detected and detected != self.theme:
-                    self.root.after(0, self._apply_detected_theme)
+                last = sig
+                self.root.after(0, self._apply_detected_theme)
             except Exception as e:
                 _dbg("theme watch: %r" % e)
 
